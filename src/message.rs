@@ -16,7 +16,17 @@ pub enum DataValue {
 
 #[derive(Debug, Clone)]
 pub struct Message {
-    pub values: Vec<DataValue>,
+    values: Vec<DataValue>,
+}
+
+impl Message {
+    pub fn new(values: Vec<DataValue>) -> Self {
+        Self { values }
+    }
+
+    pub fn values(&self) -> &Vec<DataValue> {
+        &self.values
+    }
 }
 
 #[derive(Debug, Clone)]
