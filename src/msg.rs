@@ -62,7 +62,7 @@ impl DataKind {
             Self::VarString { len_idx: _ } => {
                 let mut str_buf = vec![0u8; len];
                 buf.read_exact(&mut str_buf).map_err(|_| ())?;
-                Ok(DataValue::FixedString(
+                Ok(DataValue::VarString(
                     String::from_utf8(str_buf).map_err(|_| ())?,
                 ))
             }
