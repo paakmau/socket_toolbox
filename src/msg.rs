@@ -137,6 +137,9 @@ impl DataKind {
             (Self::FixedString { len: _ }, DataValue::FixedString(buf)) => {
                 stream.write_all(buf.as_bytes()).map_err(|_| ())?
             }
+            (Self::VarString { len_idx: _ }, DataValue::VarString(buf)) => {
+                stream.write_all(buf.as_bytes()).map_err(|_| ())?
+            }
             _ => panic!(),
         };
         Ok(())
