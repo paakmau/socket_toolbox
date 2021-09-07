@@ -11,6 +11,7 @@ pub enum DataValue {
     Uint(u64),
     Int(i64),
     String(String),
+    Bytes(Vec<u8>),
 }
 
 #[derive(Debug, Clone)]
@@ -34,6 +35,8 @@ pub enum DataKind {
     Int { len: usize },
     FixedString { len: usize },
     VarString { len_idx: usize },
+    FixedBytes { len: usize },
+    VarBytes { len_idx: usize },
 }
 
 impl DataKind {
@@ -43,6 +46,8 @@ impl DataKind {
             Self::Int { len } => Ok(*len),
             Self::FixedString { len } => Ok(*len),
             Self::VarString { len_idx } => Self::len_by_idx(*len_idx, values),
+            Self::FixedBytes { len } => Ok(*len),
+            Self::VarBytes { len_idx } => Self::len_by_idx(*len_idx, values),
         }
     }
 
@@ -57,6 +62,11 @@ impl DataKind {
                 Ok(DataValue::String(
                     String::from_utf8(str_buf).map_err(|_| ())?,
                 ))
+            }
+            Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ } => {
+                let mut bytes_buf = vec![0u8; len];
+                buf.read_exact(&mut bytes_buf).map_err(|_| ())?;
+                Ok(DataValue::Bytes(bytes_buf))
             }
         }
     }
@@ -74,6 +84,12 @@ impl DataKind {
                 DataValue::String(char_buf),
             ) => {
                 buf.put(char_buf.as_bytes());
+            }
+            (
+                Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ },
+                DataValue::Bytes(bytes_buf),
+            ) => {
+                buf.put(bytes_buf.as_slice());
             }
             _ => return Err(()),
         }
@@ -109,6 +125,11 @@ impl DataKind {
                 stream.read_exact(&mut buf).map_err(|_| ())?;
                 Ok(DataValue::String(String::from_utf8(buf).map_err(|_| ())?))
             }
+            Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ } => {
+                let mut buf = vec![0u8; len];
+                stream.read_exact(&mut buf).map_err(|_| ())?;
+                Ok(DataValue::Bytes(buf))
+            }
         }
     }
 
@@ -124,6 +145,10 @@ impl DataKind {
                 Self::FixedString { len: _ } | Self::VarString { len_idx: _ },
                 DataValue::String(buf),
             ) => stream.write_all(buf.as_bytes()).map_err(|_| ())?,
+            (
+                Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ },
+                DataValue::Bytes(buf),
+            ) => stream.write_all(buf.as_slice()).map_err(|_| ())?,
             _ => panic!(),
         };
         Ok(())
