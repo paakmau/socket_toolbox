@@ -48,18 +48,18 @@ impl DataKind {
     }
 
     fn read_from_buf(&self, values: &Vec<DataValue>, buf: &mut &[u8]) -> Result<DataValue, ()> {
+        let len = self.len(values)?;
         match self {
-            Self::Uint { len } => Ok(DataValue::Uint(buf.get_uint(*len))),
-            Self::Int { len } => Ok(DataValue::Int(buf.get_int(*len))),
-            Self::FixedString { len } => {
-                let mut str_buf = vec![0u8; *len];
+            Self::Uint { len: _ } => Ok(DataValue::Uint(buf.get_uint(len))),
+            Self::Int { len: _ } => Ok(DataValue::Int(buf.get_int(len))),
+            Self::FixedString { len: _ } => {
+                let mut str_buf = vec![0u8; len];
                 buf.read_exact(&mut str_buf).map_err(|_| ())?;
                 Ok(DataValue::FixedString(
                     String::from_utf8(str_buf).map_err(|_| ())?,
                 ))
             }
-            Self::VarString { len_idx } => {
-                let len = Self::len_by_idx(*len_idx, values)?;
+            Self::VarString { len_idx: _ } => {
                 let mut str_buf = vec![0u8; len];
                 buf.read_exact(&mut str_buf).map_err(|_| ())?;
                 Ok(DataValue::FixedString(
@@ -90,32 +90,33 @@ impl DataKind {
         values: &Vec<DataValue>,
         stream: &mut TcpStream,
     ) -> Result<DataValue, ()> {
+        let len = self.len(values)?;
+
         let mut bytes = [0u8; size_of::<u64>()];
         match self {
-            Self::Uint { len } => {
-                let mut buf = &mut bytes[size_of::<u64>() - *len..];
+            Self::Uint { len: _ } => {
+                let mut buf = &mut bytes[size_of::<u64>() - len..];
                 stream.read(&mut buf).map_err(|_| ())?;
                 Ok(DataValue::Uint(u64::from_be_bytes(bytes)))
             }
-            Self::Int { len } => {
+            Self::Int { len: _ } => {
                 let mut v;
-                let mut buf = &mut bytes[size_of::<u64>() - *len..];
+                let mut buf = &mut bytes[size_of::<u64>() - len..];
                 stream.read(&mut buf).map_err(|_| ())?;
                 v = i64::from_be_bytes(bytes);
 
-                let offset = (size_of::<u64>() - *len) * u8::BITS as usize;
+                let offset = (size_of::<u64>() - len) * u8::BITS as usize;
                 v = v << offset >> offset;
                 Ok(DataValue::Int(v))
             }
-            Self::FixedString { len } => {
-                let mut buf = vec![0u8; *len];
+            Self::FixedString { len: _ } => {
+                let mut buf = vec![0u8; len];
                 stream.read_exact(&mut buf).map_err(|_| ())?;
                 Ok(DataValue::FixedString(
                     String::from_utf8(buf).map_err(|_| ())?,
                 ))
             }
-            Self::VarString { len_idx } => {
-                let len = Self::len_by_idx(*len_idx, values)?;
+            Self::VarString { len_idx: _ } => {
                 let mut buf = vec![0u8; len];
                 stream.read_exact(&mut buf).map_err(|_| ())?;
                 Ok(DataValue::VarString(
