@@ -80,6 +80,9 @@ impl DataKind {
             (Self::FixedString { len: _ }, DataValue::FixedString(char_buf)) => {
                 buf.put(char_buf.as_bytes());
             }
+            (Self::VarString { len_idx: _ }, DataValue::VarString(char_buf)) => {
+                buf.put(char_buf.as_bytes());
+            }
             _ => return Err(()),
         }
         Ok(())
