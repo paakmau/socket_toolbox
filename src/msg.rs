@@ -10,8 +10,7 @@ use bytes::{Buf, BufMut};
 pub enum DataValue {
     Uint(u64),
     Int(i64),
-    FixedString(String),
-    VarString(String),
+    String(String),
 }
 
 #[derive(Debug, Clone)]
@@ -52,17 +51,10 @@ impl DataKind {
         match self {
             Self::Uint { len: _ } => Ok(DataValue::Uint(buf.get_uint(len))),
             Self::Int { len: _ } => Ok(DataValue::Int(buf.get_int(len))),
-            Self::FixedString { len: _ } => {
+            Self::FixedString { len: _ } | Self::VarString { len_idx: _ } => {
                 let mut str_buf = vec![0u8; len];
                 buf.read_exact(&mut str_buf).map_err(|_| ())?;
-                Ok(DataValue::FixedString(
-                    String::from_utf8(str_buf).map_err(|_| ())?,
-                ))
-            }
-            Self::VarString { len_idx: _ } => {
-                let mut str_buf = vec![0u8; len];
-                buf.read_exact(&mut str_buf).map_err(|_| ())?;
-                Ok(DataValue::VarString(
+                Ok(DataValue::String(
                     String::from_utf8(str_buf).map_err(|_| ())?,
                 ))
             }
@@ -77,10 +69,10 @@ impl DataKind {
             (Self::Int { len }, DataValue::Int(v)) => {
                 buf.put_int(*v, *len);
             }
-            (Self::FixedString { len: _ }, DataValue::FixedString(char_buf)) => {
-                buf.put(char_buf.as_bytes());
-            }
-            (Self::VarString { len_idx: _ }, DataValue::VarString(char_buf)) => {
+            (
+                Self::FixedString { len: _ } | Self::VarString { len_idx: _ },
+                DataValue::String(char_buf),
+            ) => {
                 buf.put(char_buf.as_bytes());
             }
             _ => return Err(()),
@@ -112,19 +104,10 @@ impl DataKind {
                 v = v << offset >> offset;
                 Ok(DataValue::Int(v))
             }
-            Self::FixedString { len: _ } => {
+            Self::FixedString { len: _ } | Self::VarString { len_idx: _ } => {
                 let mut buf = vec![0u8; len];
                 stream.read_exact(&mut buf).map_err(|_| ())?;
-                Ok(DataValue::FixedString(
-                    String::from_utf8(buf).map_err(|_| ())?,
-                ))
-            }
-            Self::VarString { len_idx: _ } => {
-                let mut buf = vec![0u8; len];
-                stream.read_exact(&mut buf).map_err(|_| ())?;
-                Ok(DataValue::VarString(
-                    String::from_utf8(buf).map_err(|_| ())?,
-                ))
+                Ok(DataValue::String(String::from_utf8(buf).map_err(|_| ())?))
             }
         }
     }
@@ -137,12 +120,10 @@ impl DataKind {
             (Self::Int { len }, DataValue::Int(v)) => stream
                 .write_all(&v.to_be_bytes()[size_of_val(v) - *len..])
                 .map_err(|_| ())?,
-            (Self::FixedString { len: _ }, DataValue::FixedString(buf)) => {
-                stream.write_all(buf.as_bytes()).map_err(|_| ())?
-            }
-            (Self::VarString { len_idx: _ }, DataValue::VarString(buf)) => {
-                stream.write_all(buf.as_bytes()).map_err(|_| ())?
-            }
+            (
+                Self::FixedString { len: _ } | Self::VarString { len_idx: _ },
+                DataValue::String(buf),
+            ) => stream.write_all(buf.as_bytes()).map_err(|_| ())?,
             _ => panic!(),
         };
         Ok(())
