@@ -35,7 +35,7 @@ impl Server {
         }
     }
 
-    pub fn run(&mut self, listen_addr: String) -> Result<(), ()> {
+    pub fn run(&mut self, listen_addr: &String) -> Result<(), ()> {
         let listen_addr: SocketAddr = listen_addr.parse().map_err(|_| ())?;
 
         let socket =
@@ -170,7 +170,7 @@ impl Client {
         }
     }
 
-    pub fn run(&mut self, bind_addr: Option<String>, connect_addr: String) -> Result<(), ()> {
+    pub fn run(&mut self, bind_addr: Option<&String>, connect_addr: &String) -> Result<(), ()> {
         let connect_addr: SocketAddr = connect_addr.parse().map_err(|_| ())?;
 
         let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).unwrap();
