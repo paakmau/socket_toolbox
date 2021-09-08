@@ -30,7 +30,7 @@ impl Message {
 }
 
 #[derive(Debug, Clone)]
-pub enum DataKind {
+pub enum DataFormat {
     Uint { len: usize },
     Int { len: usize },
     FixedString { len: usize },
@@ -39,7 +39,7 @@ pub enum DataKind {
     VarBytes { len_idx: usize },
 }
 
-impl DataKind {
+impl DataFormat {
     fn len(&self, values: &Vec<DataValue>) -> Result<usize, ()> {
         match self {
             Self::Uint { len } => Ok(*len),
@@ -169,27 +169,27 @@ impl DataKind {
 
 #[derive(Clone)]
 pub struct MessageFormat {
-    kinds: Vec<DataKind>,
+    data_fmts: Vec<DataFormat>,
 }
 
 impl MessageFormat {
-    pub fn new(kinds: Vec<DataKind>) -> Self {
-        MessageFormat { kinds }
+    pub fn new(data_fmts: Vec<DataFormat>) -> Self {
+        MessageFormat { data_fmts }
     }
 
-    pub fn kinds(&self) -> &Vec<DataKind> {
-        &self.kinds
+    pub fn data_fmts(&self) -> &Vec<DataFormat> {
+        &self.data_fmts
     }
 
     pub fn len(&self) -> usize {
-        self.kinds.len()
+        self.data_fmts.len()
     }
 
     pub fn decode(&self, buf: &Vec<u8>) -> Result<Message, ()> {
-        let mut values = Vec::<DataValue>::with_capacity(self.kinds.len());
+        let mut values = Vec::<DataValue>::with_capacity(self.data_fmts.len());
         let mut slice = buf.as_slice();
-        for kind in &self.kinds {
-            values.push(kind.read_from_buf(&values, &mut slice)?);
+        for data_fmt in &self.data_fmts {
+            values.push(data_fmt.read_from_buf(&values, &mut slice)?);
         }
 
         Ok(Message { values })
@@ -198,11 +198,11 @@ impl MessageFormat {
     pub fn encode(&self, msg: &Message) -> Result<Vec<u8>, ()> {
         let mut buf = Vec::<u8>::default();
         let mut len = 0;
-        for (kind, value) in self.kinds.iter().zip(msg.values.iter()) {
-            let kind_len = kind.len(&msg.values)?;
+        for (data_fmt, value) in self.data_fmts.iter().zip(msg.values.iter()) {
+            let kind_len = data_fmt.len(&msg.values)?;
             buf.resize(len + kind_len, 0);
             let mut slice = &mut buf[len..len + kind_len];
-            kind.write_to_buf(value, &mut slice)?;
+            data_fmt.write_to_buf(value, &mut slice)?;
             len += kind_len;
         }
 
@@ -210,16 +210,22 @@ impl MessageFormat {
     }
 
     pub fn read_from(&self, stream: &mut TcpStream) -> Result<Message, ()> {
-        let mut values = Vec::<DataValue>::with_capacity(self.kinds.len());
-        for kind in &self.kinds {
-            values.push(kind.read_from_tcp_stream(&values, stream).map_err(|_| ())?);
+        let mut values = Vec::<DataValue>::with_capacity(self.data_fmts.len());
+        for data_fmt in &self.data_fmts {
+            values.push(
+                data_fmt
+                    .read_from_tcp_stream(&values, stream)
+                    .map_err(|_| ())?,
+            );
         }
         Ok(Message { values })
     }
 
     pub fn write_to(&self, msg: &Message, stream: &mut TcpStream) -> Result<(), ()> {
-        for (kind, value) in self.kinds.iter().zip(msg.values.iter()) {
-            kind.write_to_tcp_stream(value, stream).map_err(|_| ())?;
+        for (data_fmt, value) in self.data_fmts.iter().zip(msg.values.iter()) {
+            data_fmt
+                .write_to_tcp_stream(value, stream)
+                .map_err(|_| ())?;
         }
         Ok(())
     }
