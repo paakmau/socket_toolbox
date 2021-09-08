@@ -29,7 +29,7 @@ impl Message {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DataFormat {
     Uint { len: usize },
     Int { len: usize },
