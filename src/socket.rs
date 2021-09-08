@@ -170,13 +170,16 @@ impl Client {
         }
     }
 
-    pub fn run(&mut self, bind_addr: String, connect_addr: String) -> Result<(), ()> {
-        let bind_addr: SocketAddr = bind_addr.parse().map_err(|_| ())?;
+    pub fn run(&mut self, bind_addr: Option<String>, connect_addr: String) -> Result<(), ()> {
         let connect_addr: SocketAddr = connect_addr.parse().map_err(|_| ())?;
 
         let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).unwrap();
-        socket.bind(&bind_addr.into()).map_err(|_| ())?;
+        if let Some(bind_addr) = bind_addr {
+            let bind_addr: SocketAddr = bind_addr.parse().map_err(|_| ()).map_err(|_| ())?;
+            socket.bind(&bind_addr.into()).map_err(|_| ())?;
+        }
         socket.connect(&connect_addr.into()).map_err(|_| ())?;
+        let bind_addr = socket.local_addr().map_err(|_| ())?.as_socket().ok_or(())?;
 
         info!(
             "Client: Started, bind: {}, connect to: {}",
