@@ -38,15 +38,11 @@ impl Server {
     pub fn run(&mut self, listen_addr: String) -> Result<(), ()> {
         let listen_addr: SocketAddr = listen_addr.parse().map_err(|_| ())?;
 
-        let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).unwrap();
-        socket
-            .set_read_timeout(Some(Duration::from_millis(1500)))
-            .map_err(|_| ())?;
-        socket
-            .set_write_timeout(Some(Duration::from_millis(1500)))
-            .map_err(|_| ())?;
+        let socket =
+            Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).map_err(|_| ())?;
+        socket.set_nonblocking(true).map_err(|_| ())?;
         socket.bind(&listen_addr.into()).map_err(|_| ())?;
-        socket.listen(2).unwrap();
+        socket.listen(2).map_err(|_| ())?;
 
         info!("Server: Started, listen: {}", &listen_addr);
 
@@ -83,7 +79,8 @@ impl Server {
                             if let Ok(msg) = fmt.read_from(&mut stream) {
                                 info!("Server: Received from {}, msg: {:?}", addr, msg);
                             } else {
-                                break;
+                                // TODO: We need a error handling here
+                                sleep(Duration::from_micros(500));
                             }
                         }));
                     }
@@ -117,7 +114,7 @@ impl Server {
                     }
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    sleep(Duration::from_millis(1500));
+                    sleep(Duration::from_millis(500));
                 }
                 Err(e) => panic!("Encounter IO error: {:?}", e),
             }
@@ -178,12 +175,6 @@ impl Client {
         let connect_addr: SocketAddr = connect_addr.parse().map_err(|_| ())?;
 
         let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).unwrap();
-        socket
-            .set_read_timeout(Some(Duration::from_millis(1500)))
-            .map_err(|_| ())?;
-        socket
-            .set_write_timeout(Some(Duration::from_millis(1500)))
-            .map_err(|_| ())?;
         socket.bind(&bind_addr.into()).map_err(|_| ())?;
         socket.connect(&connect_addr.into()).map_err(|_| ())?;
 
