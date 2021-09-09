@@ -107,13 +107,13 @@ impl DataFormat {
         match self {
             Self::Uint { len: _ } => {
                 let mut buf = &mut bytes[size_of::<u64>() - len..];
-                stream.read(&mut buf).map_err(|_| ())?;
+                stream.read_exact(&mut buf).map_err(|_| ())?;
                 Ok(DataValue::Uint(u64::from_be_bytes(bytes)))
             }
             Self::Int { len: _ } => {
                 let mut v;
                 let mut buf = &mut bytes[size_of::<u64>() - len..];
-                stream.read(&mut buf).map_err(|_| ())?;
+                stream.read_exact(&mut buf).map_err(|_| ())?;
                 v = i64::from_be_bytes(bytes);
 
                 let offset = (size_of::<u64>() - len) * u8::BITS as usize;
