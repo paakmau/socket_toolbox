@@ -178,6 +178,9 @@ impl Client {
             let bind_addr: SocketAddr = bind_addr.parse().map_err(|_| ()).map_err(|_| ())?;
             socket.bind(&bind_addr.into()).map_err(|_| ())?;
         }
+        socket
+            .set_read_timeout(Some(Duration::from_millis(500)))
+            .unwrap();
         socket.connect(&connect_addr.into()).map_err(|_| ())?;
         let bind_addr = socket.local_addr().map_err(|_| ())?.as_socket().ok_or(())?;
 
@@ -197,7 +200,7 @@ impl Client {
             if let Ok(msg) = fmt.read_from(&mut stream) {
                 info!("Client: Received from {}, msg: {:?}", &connect_addr, &msg);
             } else {
-                break;
+                continue;
             }
         }));
 
