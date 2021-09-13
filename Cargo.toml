@@ -7,5 +7,8 @@ edition = "2018"
 [dependencies]
 bytes = "1"
 log = "0.4"
+hex = "0.4.3"
 simplelog = "0.10.0"
 socket2 = "0.4.1"
+strum = { version = "0.21", features = ["derive"] }
+eframe = "0.14.0"
