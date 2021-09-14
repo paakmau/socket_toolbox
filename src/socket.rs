@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     net::{SocketAddr, TcpListener, TcpStream},
+    ops::Deref,
     sync::{
         atomic::{AtomicBool, Ordering},
         mpsc::{channel, Sender},
@@ -247,8 +248,11 @@ impl Client {
     }
 
     pub fn send_msg(&mut self, msg: Message) -> Result<(), ()> {
-        let tx = self.tx.lock().unwrap().take().unwrap();
-        tx.send(msg).unwrap();
-        Ok(())
+        if let Some(tx) = self.tx.lock().unwrap().deref() {
+            tx.send(msg).unwrap();
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 }
