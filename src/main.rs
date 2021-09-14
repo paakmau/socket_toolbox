@@ -8,6 +8,7 @@ mod socket;
 
 #[derive(Debug, Clone, PartialEq, strum::ToString, strum::EnumIter)]
 enum DataKind {
+    Len,
     Uint,
     Int,
     FixedString,
@@ -19,6 +20,10 @@ enum DataKind {
 impl DataKind {
     fn from_data_format(fmt: &DataFormat) -> Self {
         match fmt {
+            DataFormat::Len {
+                len: _,
+                data_idx: _,
+            } => Self::Len,
             DataFormat::Uint { len: _ } => Self::Uint,
             DataFormat::Int { len: _ } => Self::Int,
             DataFormat::FixedString { len: _ } => Self::FixedString,
@@ -30,6 +35,10 @@ impl DataKind {
 
     fn get_default_data_format(&self) -> DataFormat {
         match self {
+            DataKind::Len => DataFormat::Len {
+                len: 0,
+                data_idx: 0,
+            },
             DataKind::Uint => DataFormat::Uint { len: 0 },
             DataKind::Int => DataFormat::Int { len: 0 },
             DataKind::FixedString => DataFormat::FixedString { len: 0 },
@@ -41,6 +50,7 @@ impl DataKind {
 
     fn get_default_data_value(&self) -> DataValue {
         match self {
+            DataKind::Len => DataValue::Len(0),
             DataKind::Uint => DataValue::Uint(0),
             DataKind::Int => DataValue::Int(0),
             DataKind::FixedString => DataValue::String(Default::default()),
@@ -95,6 +105,16 @@ impl epi::App for App {
                     });
 
                 match fmt {
+                    DataFormat::Len { len, data_idx } => {
+                        let mut len_str = len.to_string();
+                        ui.text_edit_singleline(&mut len_str);
+                        *len = len_str.parse::<usize>().unwrap_or(1);
+                        *len = (*len).max(1);
+
+                        let mut data_idx_str = data_idx.to_string();
+                        ui.text_edit_singleline(&mut data_idx_str);
+                        *data_idx = data_idx_str.parse::<usize>().unwrap_or(0);
+                    }
                     DataFormat::Uint { len }
                     | DataFormat::Int { len }
                     | DataFormat::FixedString { len }
@@ -112,7 +132,7 @@ impl epi::App for App {
                 }
 
                 match value {
-                    DataValue::Uint(v) => {
+                    DataValue::Len(v) | DataValue::Uint(v) => {
                         let mut v_str = v.to_string();
                         ui.text_edit_singleline(&mut v_str);
                         *v = v_str.parse::<u64>().unwrap_or(0);
@@ -133,8 +153,11 @@ impl epi::App for App {
                 }
             }
             if ui.button("Add item").clicked() {
-                data_fmts.push(DataFormat::Uint { len: 1 });
-                data_values.push(DataValue::Uint(0));
+                data_fmts.push(DataFormat::Len {
+                    len: 1,
+                    data_idx: 0,
+                });
+                data_values.push(DataValue::Len(0));
             }
         });
     }
