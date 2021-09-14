@@ -46,6 +46,8 @@ impl Server {
 
         info!("Server: Started, listen: {}", &listen_addr);
 
+        self.stop_flag.store(false, Ordering::Relaxed);
+
         let fmt = self.fmt.clone();
         let listener: TcpListener = socket.try_clone().unwrap().into();
         let stop_flag = self.stop_flag.clone();
@@ -188,6 +190,8 @@ impl Client {
             "Client: Started, bind: {}, connect to: {}",
             &bind_addr, &connect_addr
         );
+
+        self.stop_flag.store(false, Ordering::Relaxed);
 
         let fmt = self.fmt.clone();
         let stop_flag = self.stop_flag.clone();
