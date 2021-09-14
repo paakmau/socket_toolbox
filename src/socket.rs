@@ -233,11 +233,11 @@ impl Client {
         if let (Some(reader_handle), Some(writer_handle)) =
             (self.reader_handle.take(), self.writer_handle.take())
         {
+            self.stop_flag.store(true, Ordering::Relaxed);
             {
                 let mut tx = self.tx.lock().unwrap();
                 tx.take();
             }
-            self.stop_flag.store(true, Ordering::Relaxed);
             reader_handle.join().map_err(|_| ())?;
             writer_handle.join().map_err(|_| ())?;
             Ok(())
