@@ -54,8 +54,7 @@ impl DataFormat {
         }
     }
 
-    fn read_from_buf(&self, values: &Vec<DataValue>, buf: &mut &[u8]) -> Result<DataValue, ()> {
-        let len = self.len(values)?;
+    fn read_from_buf(&self, len: usize, buf: &mut &[u8]) -> Result<DataValue, ()> {
         match self {
             Self::Len {
                 len: _,
@@ -106,13 +105,7 @@ impl DataFormat {
         Ok(())
     }
 
-    fn read_from_tcp_stream(
-        &self,
-        values: &Vec<DataValue>,
-        stream: &mut TcpStream,
-    ) -> Result<DataValue, ()> {
-        let len = self.len(values)?;
-
+    fn read_from_tcp_stream(&self, len: usize, stream: &mut TcpStream) -> Result<DataValue, ()> {
         let mut bytes = [0u8; size_of::<u64>()];
         match self {
             Self::Len {
@@ -207,7 +200,8 @@ impl MessageFormat {
         let mut values = Vec::<DataValue>::with_capacity(self.data_fmts.len());
         let mut slice = buf.as_slice();
         for data_fmt in &self.data_fmts {
-            values.push(data_fmt.read_from_buf(&values, &mut slice)?);
+            let len = data_fmt.len(&values)?;
+            values.push(data_fmt.read_from_buf(len, &mut slice)?);
         }
 
         Ok(Message { values })
@@ -230,11 +224,8 @@ impl MessageFormat {
     pub fn read_from(&self, stream: &mut TcpStream) -> Result<Message, ()> {
         let mut values = Vec::<DataValue>::with_capacity(self.data_fmts.len());
         for data_fmt in &self.data_fmts {
-            values.push(
-                data_fmt
-                    .read_from_tcp_stream(&values, stream)
-                    .map_err(|_| ())?,
-            );
+            let len = data_fmt.len(&values)?;
+            values.push(data_fmt.read_from_tcp_stream(len, stream).map_err(|_| ())?);
         }
         Ok(Message { values })
     }
