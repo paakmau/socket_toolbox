@@ -74,6 +74,8 @@ struct App {
     data_fmts: Vec<DataFormat>,
     data_values: Vec<DataValue>,
 
+    decoded_msg: String,
+
     client_bind_addr: String,
     client_connect_addr: String,
     client_run_flag: bool,
@@ -104,6 +106,7 @@ impl epi::App for App {
         let Self {
             data_fmts,
             data_values,
+            decoded_msg,
             client_bind_addr,
             client_connect_addr,
             client_run_flag,
@@ -243,12 +246,43 @@ impl epi::App for App {
                     });
                     data_values.push(DataValue::Len(0));
                 }
+
+                // Encoder and decoder.
+                let msg_fmt = MessageFormat::new(data_fmts.clone());
+
+                ui.horizontal(|ui| {
+                    ui.label("Encode:");
+                    ui.label(hex::encode_upper(
+                        msg_fmt
+                            .encode(&Message::new(data_values.clone()))
+                            .unwrap_or(Default::default()),
+                    ));
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label("Decode:");
+                    ui.text_edit_singleline(decoded_msg);
+                    if ui.button("Confirm").clicked() {
+                        match hex::decode(decoded_msg) {
+                            Ok(bytes) => match msg_fmt.decode(&bytes) {
+                                Ok(msg) => *data_values = msg.values().clone(),
+                                Err(e) => warn!(
+                                    "App: The bytes can not be decoded to Message, details: {}",
+                                    e
+                                ),
+                            },
+                            Err(e) => warn!(
+                                "App: The string can not be decoded to bytes, details: {}",
+                                e
+                            ),
+                        }
+                    }
+                });
             });
 
             // Group for server.
             ui.group(|ui| {
                 ui.horizontal(|ui| {
-                    ui.label("server");
                     if ui.add(ui::toggle(server_run_flag)).clicked() {
                         if *server_run_flag {
                             let mut new_server = Server::new(MessageFormat::new(data_fmts.clone()));
