@@ -24,7 +24,7 @@ pub struct Server {
 
     stop_flag: Arc<AtomicBool>,
 
-    listen_addr: Option<SocketAddr>,
+    listen_addr: Option<String>,
     tx_map: Arc<Mutex<HashMap<String, Sender<Message>>>>,
 
     handle: Option<JoinHandle<()>>,
@@ -41,7 +41,7 @@ impl Server {
         }
     }
 
-    pub fn listen_addr(&self) -> &Option<SocketAddr> {
+    pub fn listen_addr(&self) -> &Option<String> {
         &self.listen_addr
     }
 
@@ -59,7 +59,7 @@ impl Server {
         info!("Server: Started, listen: {}", &listen_addr);
 
         self.stop_flag.store(false, Ordering::Relaxed);
-        self.listen_addr = Some(listen_addr);
+        self.listen_addr = Some(listen_addr.to_string());
 
         let fmt = self.fmt.clone();
         let listener: TcpListener = socket.try_clone().unwrap().into();
