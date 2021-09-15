@@ -113,27 +113,17 @@ impl DataFormat {
 
     fn write_to_buf(&self, value: &DataValue, buf: &mut &mut [u8]) {
         match (self, value) {
-            (Self::Len { len, data_idx: _ }, DataValue::Len(v)) => {
-                buf.put_uint(*v, *len);
-            }
-            (Self::Uint { len }, DataValue::Uint(v)) => {
-                buf.put_uint(*v, *len);
-            }
-            (Self::Int { len }, DataValue::Int(v)) => {
-                buf.put_int(*v, *len);
-            }
+            (Self::Len { len, data_idx: _ }, DataValue::Len(v)) => buf.put_uint(*v, *len),
+            (Self::Uint { len }, DataValue::Uint(v)) => buf.put_uint(*v, *len),
+            (Self::Int { len }, DataValue::Int(v)) => buf.put_int(*v, *len),
             (
                 Self::FixedString { len: _ } | Self::VarString { len_idx: _ },
                 DataValue::String(char_buf),
-            ) => {
-                buf.put(char_buf.as_bytes());
-            }
+            ) => buf.put(char_buf.as_bytes()),
             (
                 Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ },
                 DataValue::Bytes(bytes_buf),
-            ) => {
-                buf.put(bytes_buf.as_slice());
-            }
+            ) => buf.put(bytes_buf.as_slice()),
             _ => panic!(),
         }
     }
