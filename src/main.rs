@@ -283,12 +283,11 @@ impl epi::App for App {
                 if *client_run_flag {
                     let mut new_client = Client::new(MessageFormat::new(data_fmts.clone()));
 
-                    let bind_addr;
-                    if client_bind_addr.is_empty() {
-                        bind_addr = None;
+                    let bind_addr = if client_bind_addr.is_empty() {
+                        None
                     } else {
-                        bind_addr = Some(client_bind_addr.as_str())
-                    }
+                        Some(client_bind_addr.as_str())
+                    };
 
                     new_client
                         .run(bind_addr, client_connect_addr)
