@@ -221,7 +221,7 @@ impl epi::App for App {
 
             // Group for server.
             ui.group(|ui| {
-                egui::Grid::new("server").num_columns(2).show(ui, |ui| {
+                ui.horizontal(|ui| {
                     ui.label("server");
                     if ui.add(ui::toggle(server_run_flag)).clicked() {
                         if *server_run_flag {
@@ -247,8 +247,11 @@ impl epi::App for App {
                             server.take().unwrap().stop();
                         }
                     }
-                    ui.end_row();
+                });
 
+                ui.separator();
+
+                egui::Grid::new("server").num_columns(2).show(ui, |ui| {
                     ui.label("Connect count:");
                     ui.label(
                         server
@@ -290,7 +293,7 @@ impl epi::App for App {
 
             // Group for client.
             ui.group(|ui| {
-                egui::Grid::new("client").num_columns(2).show(ui, |ui| {
+                ui.horizontal(|ui| {
                     ui.label("client");
                     if ui.add(ui::toggle(client_run_flag)).clicked() {
                         if *client_run_flag {
@@ -321,8 +324,10 @@ impl epi::App for App {
                             client.take().unwrap().stop();
                         }
                     }
-                    ui.end_row();
+                });
+                ui.separator();
 
+                egui::Grid::new("client").num_columns(2).show(ui, |ui| {
                     ui.label("Bind:");
                     // Client bind address should not be modified while running.
                     TextEdit::singleline(client_bind_addr)
