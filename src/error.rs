@@ -5,6 +5,9 @@ pub enum Error {
     #[error("io error, kind: {:?}", std::io::Error::kind(.0))]
     Io(#[from] std::io::Error),
 
+    #[error("the MessageFormat should not be empty")]
+    MessageFormatEmpty,
+
     #[error("invalid IP address syntax, `{invalid_addr}`")]
     AddrParse { invalid_addr: String },
 

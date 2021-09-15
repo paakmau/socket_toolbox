@@ -245,6 +245,10 @@ impl MessageFormat {
         self.data_fmts.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.data_fmts.is_empty()
+    }
+
     pub fn decode(&self, buf: &Vec<u8>) -> Result<Message> {
         let mut values = Vec::<DataValue>::with_capacity(self.data_fmts.len());
         let mut slice = buf.as_slice();

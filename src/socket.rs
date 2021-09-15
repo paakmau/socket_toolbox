@@ -50,6 +50,10 @@ impl Server {
     }
 
     pub fn run(&mut self, listen_addr: Option<&str>) -> Result<()> {
+        if self.fmt.is_empty() {
+            return Err(Error::MessageFormatEmpty);
+        }
+
         let listen_addr = match listen_addr {
             Some(a) => a,
             None => "127.0.0.1:0",
@@ -213,6 +217,10 @@ impl Client {
     }
 
     pub fn run(&mut self, bind_addr: Option<&str>, connect_addr: &str) -> Result<()> {
+        if self.fmt.is_empty() {
+            return Err(Error::MessageFormatEmpty);
+        }
+
         let connect_addr: SocketAddr = connect_addr.parse().map_err(|_| Error::AddrParse {
             invalid_addr: connect_addr.to_string(),
         })?;
