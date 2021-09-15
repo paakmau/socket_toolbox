@@ -1,4 +1,7 @@
-use eframe::{egui, epi};
+use eframe::{
+    egui::{self, Widget},
+    epi,
+};
 use hex::ToHex;
 use log::warn;
 use msg::{DataFormat, DataValue, Message, MessageFormat};
@@ -114,6 +117,9 @@ impl epi::App for App {
                 ui.label("Message");
                 ui.separator();
 
+                // Format should not be modified after running.
+                let can_modify_format = !*server_run_flag && !*client_run_flag;
+
                 egui::Grid::new("message")
                     .num_columns(2)
                     .striped(true)
@@ -126,6 +132,8 @@ impl epi::App for App {
                             data_fmts.iter_mut().zip(data_values.iter_mut()).enumerate()
                         {
                             ui.vertical(|ui| {
+                                ui.set_enabled(can_modify_format);
+
                                 let mut kind = DataKind::from_data_format(fmt);
                                 egui::ComboBox::from_id_source(idx)
                                     .selected_text(kind.to_string())
@@ -197,7 +205,11 @@ impl epi::App for App {
                         }
                     });
 
-                if ui.button("Add message item").clicked() {
+                if egui::Button::new("Add message item")
+                    .enabled(can_modify_format)
+                    .ui(ui)
+                    .clicked()
+                {
                     data_fmts.push(DataFormat::Len {
                         len: 1,
                         data_idx: 0,
