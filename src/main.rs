@@ -252,6 +252,15 @@ impl epi::App for App {
                             }
                             ui.end_row();
 
+                            ui.label("Connect count:");
+                            ui.label(
+                                server
+                                    .as_ref()
+                                    .map(|s| s.client_len().to_string())
+                                    .unwrap_or(Default::default()),
+                            );
+                            ui.end_row();
+
                             ui.label("Listen:");
                             // Server listen address should not be modified while running.
                             TextEdit::singleline(server_listen_addr)
