@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    net::{AddrParseError, SocketAddr, TcpListener, TcpStream},
+    net::{SocketAddr, TcpListener, TcpStream},
     ops::Deref,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -152,7 +152,7 @@ impl Server {
         Ok(())
     }
 
-    pub fn stop(&mut self) -> Result<()> {
+    pub fn stop(&mut self) {
         if let Some(handle) = self.handle.take() {
             self.stop_flag.store(true, Ordering::Relaxed);
             self.listen_addr = None;
@@ -161,7 +161,6 @@ impl Server {
                 tx_map.clear();
             }
             handle.join().unwrap();
-            Ok(())
         } else {
             panic!();
         }
@@ -282,7 +281,7 @@ impl Client {
         Ok(())
     }
 
-    pub fn stop(&mut self) -> Result<()> {
+    pub fn stop(&mut self) {
         if let (Some(reader_handle), Some(writer_handle)) =
             (self.reader_handle.take(), self.writer_handle.take())
         {
@@ -294,7 +293,6 @@ impl Client {
             }
             reader_handle.join().unwrap();
             writer_handle.join().unwrap();
-            Ok(())
         } else {
             panic!();
         }
@@ -359,8 +357,8 @@ mod tests {
         s.send_msg(&client_addr, msg_server_1).unwrap();
         s.send_msg(&client_addr, msg_server_2).unwrap();
 
-        s.stop().unwrap();
-        c.stop().unwrap();
+        s.stop();
+        c.stop();
     }
 
     #[test]
