@@ -39,7 +39,7 @@ impl Server {
         }
     }
 
-    pub fn run(&mut self, listen_addr: &String) -> Result<(), ()> {
+    pub fn run(&mut self, listen_addr: &str) -> Result<(), ()> {
         let listen_addr: SocketAddr = listen_addr.parse().map_err(|_| ())?;
 
         let socket =
@@ -151,9 +151,9 @@ impl Server {
         }
     }
 
-    pub fn send_msg(&mut self, addr: String, msg: Message) -> Result<(), ()> {
+    pub fn send_msg(&mut self, addr: &str, msg: Message) -> Result<(), ()> {
         let tx_map = self.tx_map.lock().unwrap();
-        if let Some(tx) = tx_map.get(&addr) {
+        if let Some(tx) = tx_map.get(addr) {
             tx.send(msg).unwrap();
             Ok(())
         } else {
@@ -184,7 +184,7 @@ impl Client {
         }
     }
 
-    pub fn run(&mut self, bind_addr: Option<&String>, connect_addr: &String) -> Result<(), ()> {
+    pub fn run(&mut self, bind_addr: Option<&str>, connect_addr: &str) -> Result<(), ()> {
         let connect_addr: SocketAddr = connect_addr.parse().map_err(|_| ())?;
 
         let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).unwrap();
