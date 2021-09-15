@@ -130,6 +130,7 @@ impl epi::App for App {
                         ui.label("Value");
                         ui.end_row();
 
+                        let mut removed_idx = None;
                         for (idx, (fmt, value)) in
                             data_fmts.iter_mut().zip(data_values.iter_mut()).enumerate()
                         {
@@ -194,28 +195,40 @@ impl epi::App for App {
                                 }
                             });
 
-                            ui.vertical(|ui| match value {
-                                DataValue::Len(v) | DataValue::Uint(v) => {
-                                    let mut v_str = v.to_string();
-                                    ui.text_edit_singleline(&mut v_str);
-                                    *v = v_str.parse::<u64>().unwrap_or(0);
+                            ui.vertical(|ui| {
+                                if ui.button("Delete").clicked() {
+                                    removed_idx = Some(idx);
                                 }
-                                DataValue::Int(v) => {
-                                    let mut v_str = v.to_string();
-                                    ui.text_edit_singleline(&mut v_str);
-                                    *v = v_str.parse::<i64>().unwrap_or(0);
-                                }
-                                DataValue::String(s) => {
-                                    ui.text_edit_singleline(s);
-                                }
-                                DataValue::Bytes(bytes) => {
-                                    let mut bytes_str: String = bytes.encode_hex_upper();
-                                    ui.text_edit_singleline(&mut bytes_str);
-                                    *bytes = hex::decode(bytes_str).unwrap_or(Default::default());
-                                }
+
+                                match value {
+                                    DataValue::Len(v) | DataValue::Uint(v) => {
+                                        let mut v_str = v.to_string();
+                                        ui.text_edit_singleline(&mut v_str);
+                                        *v = v_str.parse::<u64>().unwrap_or(0);
+                                    }
+                                    DataValue::Int(v) => {
+                                        let mut v_str = v.to_string();
+                                        ui.text_edit_singleline(&mut v_str);
+                                        *v = v_str.parse::<i64>().unwrap_or(0);
+                                    }
+                                    DataValue::String(s) => {
+                                        ui.text_edit_singleline(s);
+                                    }
+                                    DataValue::Bytes(bytes) => {
+                                        let mut bytes_str: String = bytes.encode_hex_upper();
+                                        ui.text_edit_singleline(&mut bytes_str);
+                                        *bytes =
+                                            hex::decode(bytes_str).unwrap_or(Default::default());
+                                    }
+                                };
                             });
 
                             ui.end_row();
+                        }
+
+                        if let Some(idx) = removed_idx {
+                            data_fmts.remove(idx);
+                            data_values.remove(idx);
                         }
                     });
 
