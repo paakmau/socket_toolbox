@@ -43,28 +43,28 @@ impl DataKind {
 
     fn get_default_data_format(&self) -> DataFormat {
         match self {
-            DataKind::Len => DataFormat::Len {
+            Self::Len => DataFormat::Len {
                 len: 0,
                 data_idx: 0,
             },
-            DataKind::Uint => DataFormat::Uint { len: 1 },
-            DataKind::Int => DataFormat::Int { len: 1 },
-            DataKind::FixedString => DataFormat::FixedString { len: 1 },
-            DataKind::VarString => DataFormat::VarString { len_idx: 0 },
-            DataKind::FixedBytes => DataFormat::FixedBytes { len: 1 },
-            DataKind::VarBytes => DataFormat::VarBytes { len_idx: 0 },
+            Self::Uint => DataFormat::Uint { len: 1 },
+            Self::Int => DataFormat::Int { len: 1 },
+            Self::FixedString => DataFormat::FixedString { len: 1 },
+            Self::VarString => DataFormat::VarString { len_idx: 0 },
+            Self::FixedBytes => DataFormat::FixedBytes { len: 1 },
+            Self::VarBytes => DataFormat::VarBytes { len_idx: 0 },
         }
     }
 
     fn get_default_data_value(&self) -> DataValue {
         match self {
-            DataKind::Len => DataValue::Len(0),
-            DataKind::Uint => DataValue::Uint(0),
-            DataKind::Int => DataValue::Int(0),
-            DataKind::FixedString => DataValue::String(Default::default()),
-            DataKind::VarString => DataValue::String(Default::default()),
-            DataKind::FixedBytes => DataValue::Bytes(Default::default()),
-            DataKind::VarBytes => DataValue::Bytes(Default::default()),
+            Self::Len => DataValue::Len(0),
+            Self::Uint => DataValue::Uint(0),
+            Self::Int => DataValue::Int(0),
+            Self::FixedString => DataValue::String(Default::default()),
+            Self::VarString => DataValue::String(Default::default()),
+            Self::FixedBytes => DataValue::Bytes(Default::default()),
+            Self::VarBytes => DataValue::Bytes(Default::default()),
         }
     }
 }
