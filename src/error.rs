@@ -5,6 +5,15 @@ pub enum Error {
     #[error("io error, kind: {:?}", std::io::Error::kind(.0))]
     Io(#[from] std::io::Error),
 
+    #[error("invalid IP address syntax, `{invalid_addr}`")]
+    AddrParse { invalid_addr: String },
+
+    #[error("there is no such client connected `{addr}`")]
+    NoSuchClient { addr: String },
+
+    #[error("the client not connected to a server")]
+    NotConnected,
+
     #[error("the index of length is out of bound, index of data: {data_idx}, index of length: {len_idx}")]
     LenIdxOutOfBound { data_idx: usize, len_idx: usize },
 
