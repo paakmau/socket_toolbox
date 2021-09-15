@@ -1,0 +1,47 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  Release:
+    name: Release
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact-name: socket_toolbox
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact-name: socket_toolbox.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target=${{ matrix.target }}
+
+      - name: Create archive
+        run: tar cfz socket_toolbox-${{ matrix.target }}.tar.gz -Ctarget/${{ matrix.target }}/release/ ${{ matrix.artifact-name }}
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: socket_toolbox-${{ matrix.target }}.tar.gz
