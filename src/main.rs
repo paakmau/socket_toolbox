@@ -220,114 +220,129 @@ impl epi::App for App {
                 }
             });
 
-            ui.label("server");
+            ui.horizontal(|ui| {
+                // Group for server.
+                ui.group(|ui| {
+                    ui.vertical(|ui| {
+                        ui.label("server");
 
-            // Server listen address should not be modified while running.
-            TextEdit::singleline(server_listen_addr)
-                .enabled(!*server_run_flag)
-                .ui(ui);
+                        // Server listen address should not be modified while running.
+                        TextEdit::singleline(server_listen_addr)
+                            .enabled(!*server_run_flag)
+                            .ui(ui);
 
-            if ui.add(ui::toggle(server_run_flag)).clicked() {
-                if *server_run_flag {
-                    let mut new_server = Server::new(MessageFormat::new(data_fmts.clone()));
+                        if ui.add(ui::toggle(server_run_flag)).clicked() {
+                            if *server_run_flag {
+                                let mut new_server =
+                                    Server::new(MessageFormat::new(data_fmts.clone()));
 
-                    let listen_addr = if server_listen_addr.is_empty() {
-                        None
-                    } else {
-                        Some(server_listen_addr.as_str())
-                    };
+                                let listen_addr = if server_listen_addr.is_empty() {
+                                    None
+                                } else {
+                                    Some(server_listen_addr.as_str())
+                                };
 
-                    new_server.run(listen_addr).err().iter().for_each(|e| {
-                        warn!("App: Error occurs when run server, details: {}", e);
-                        *server_run_flag = false;
+                                new_server.run(listen_addr).err().iter().for_each(|e| {
+                                    warn!("App: Error occurs when run server, details: {}", e);
+                                    *server_run_flag = false;
+                                });
+
+                                if *server_run_flag {
+                                    *server_listen_addr =
+                                        new_server.listen_addr().as_ref().unwrap().clone();
+                                    server.replace(new_server);
+                                }
+                            } else {
+                                server.take().unwrap().stop();
+                            }
+                        }
+
+                        ui.text_edit_singleline(server_target_addr);
+                        if ui
+                            .add(egui::Button::new("send message").enabled(*server_run_flag))
+                            .clicked()
+                        {
+                            server
+                                .as_mut()
+                                .unwrap()
+                                .send_msg(server_target_addr, Message::new(data_values.clone()))
+                                .err()
+                                .iter()
+                                .for_each(|e| {
+                                    warn!(
+                                "App: Error occurs when send message to client `{}`, details: {}",
+                                server_target_addr, e
+                            );
+                                });
+                        }
                     });
+                });
+                // Group for client.
+                ui.group(|ui| {
+                    ui.vertical(|ui| {
+                        ui.label("client");
 
-                    if *server_run_flag {
-                        *server_listen_addr = new_server.listen_addr().as_ref().unwrap().clone();
-                        server.replace(new_server);
-                    }
-                } else {
-                    server.take().unwrap().stop();
-                }
-            }
+                        // Client bind address should not be modified while running.
+                        TextEdit::singleline(client_bind_addr)
+                            .enabled(!*client_run_flag)
+                            .ui(ui);
 
-            ui.text_edit_singleline(server_target_addr);
-            if ui
-                .add(egui::Button::new("send message").enabled(*server_run_flag))
-                .clicked()
-            {
-                server
-                    .as_mut()
-                    .unwrap()
-                    .send_msg(server_target_addr, Message::new(data_values.clone()))
-                    .err()
-                    .iter()
-                    .for_each(|e| {
-                        warn!(
-                            "App: Error occurs when send message to client `{}`, details: {}",
-                            server_target_addr, e
-                        );
+                        // Client listen address should not be modified while running.
+                        TextEdit::singleline(client_connect_addr)
+                            .enabled(!*client_run_flag)
+                            .ui(ui);
+
+                        if ui.add(ui::toggle(client_run_flag)).clicked() {
+                            if *client_run_flag {
+                                let mut new_client =
+                                    Client::new(MessageFormat::new(data_fmts.clone()));
+
+                                let bind_addr = if client_bind_addr.is_empty() {
+                                    None
+                                } else {
+                                    Some(client_bind_addr.as_str())
+                                };
+
+                                new_client
+                                    .run(bind_addr, client_connect_addr)
+                                    .err()
+                                    .iter()
+                                    .for_each(|e| {
+                                        warn!("App: Error occurs when run client, details: {}", e);
+                                        *client_run_flag = false;
+                                    });
+
+                                if *client_run_flag {
+                                    *client_bind_addr =
+                                        new_client.bind_addr().as_ref().unwrap().clone();
+
+                                    client.replace(new_client);
+                                }
+                            } else {
+                                client.take().unwrap().stop();
+                            }
+                        }
+
+                        if ui
+                            .add(egui::Button::new("send message").enabled(*client_run_flag))
+                            .clicked()
+                        {
+                            client
+                                .as_mut()
+                                .unwrap()
+                                .send_msg(Message::new(data_values.clone()))
+                                .err()
+                                .iter()
+                                .for_each(|e| {
+                                    warn!(
+                                    "App: Error occurs when send message to server, details: {}",
+                                    e
+                                );
+                                });
+                        }
                     });
-            }
-
-            ui.label("client");
-
-            // Client bind address should not be modified while running.
-            TextEdit::singleline(client_bind_addr)
-                .enabled(!*client_run_flag)
-                .ui(ui);
-
-            // Client listen address should not be modified while running.
-            TextEdit::singleline(client_connect_addr)
-                .enabled(!*client_run_flag)
-                .ui(ui);
-
-            if ui.add(ui::toggle(client_run_flag)).clicked() {
-                if *client_run_flag {
-                    let mut new_client = Client::new(MessageFormat::new(data_fmts.clone()));
-
-                    let bind_addr = if client_bind_addr.is_empty() {
-                        None
-                    } else {
-                        Some(client_bind_addr.as_str())
-                    };
-
-                    new_client
-                        .run(bind_addr, client_connect_addr)
-                        .err()
-                        .iter()
-                        .for_each(|e| {
-                            warn!("App: Error occurs when run client, details: {}", e);
-                            *client_run_flag = false;
-                        });
-
-                    if *client_run_flag {
-                        *client_bind_addr = new_client.bind_addr().as_ref().unwrap().clone();
-
-                        client.replace(new_client);
-                    }
-                } else {
-                    client.take().unwrap().stop();
-                }
-            }
-
-            if ui
-                .add(egui::Button::new("send message").enabled(*client_run_flag))
-                .clicked()
-            {
-                client
-                    .as_mut()
-                    .unwrap()
-                    .send_msg(Message::new(data_values.clone()))
-                    .err()
-                    .iter()
-                    .for_each(|e| {
-                        warn!(
-                            "App: Error occurs when send message to server, details: {}",
-                            e
-                        );
-                    });
-            }
+                });
+            });
         });
     }
 }
