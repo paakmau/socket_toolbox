@@ -238,8 +238,11 @@ impl epi::App for App {
                             warn!("App: Error occurs when run server, details: {}", e);
                             *server_run_flag = false;
                         });
-                    *server_listen_addr = new_server.listen_addr().as_ref().unwrap().clone();
-                    server.replace(new_server);
+
+                    if *server_run_flag {
+                        *server_listen_addr = new_server.listen_addr().as_ref().unwrap().clone();
+                        server.replace(new_server);
+                    }
                 } else {
                     server.take().unwrap().stop();
                 }
