@@ -220,8 +220,7 @@ impl epi::App for App {
                                     DataValue::Bytes(bytes) => {
                                         let mut bytes_str: String = bytes.encode_hex_upper();
                                         ui.text_edit_singleline(&mut bytes_str);
-                                        *bytes =
-                                            hex::decode(bytes_str).unwrap_or(Default::default());
+                                        *bytes = hex::decode(bytes_str).unwrap_or_default();
                                     }
                                 };
                             });
@@ -255,7 +254,7 @@ impl epi::App for App {
                     ui.label(hex::encode_upper(
                         msg_fmt
                             .encode(&Message::new(data_values.clone()))
-                            .unwrap_or(Default::default()),
+                            .unwrap_or_default(),
                     ));
                 });
 
@@ -317,7 +316,7 @@ impl epi::App for App {
                         server
                             .as_ref()
                             .map(|s| s.client_len().to_string())
-                            .unwrap_or(Default::default()),
+                            .unwrap_or_default(),
                     );
                     ui.end_row();
 

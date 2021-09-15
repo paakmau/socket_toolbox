@@ -54,20 +54,17 @@ impl Server {
             return Err(Error::MessageFormatEmpty);
         }
 
-        let listen_addr = match listen_addr {
-            Some(a) => a,
-            None => "127.0.0.1:0",
-        };
+        let listen_addr = listen_addr.unwrap_or("127.0.0.1:0");
 
         let listen_addr: SocketAddr = listen_addr.parse().map_err(|_| Error::AddrParse {
             invalid_addr: listen_addr.to_string(),
         })?;
 
-        let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))
-            .map_err(|e| Error::Io(e))?;
-        socket.set_nonblocking(true).map_err(|e| Error::Io(e))?;
-        socket.bind(&listen_addr.into()).map_err(|e| Error::Io(e))?;
-        socket.listen(2).map_err(|e| Error::Io(e))?;
+        let socket =
+            Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).map_err(Error::Io)?;
+        socket.set_nonblocking(true).map_err(Error::Io)?;
+        socket.bind(&listen_addr.into()).map_err(Error::Io)?;
+        socket.listen(2).map_err(Error::Io)?;
 
         let listen_addr = socket.local_addr().unwrap().as_socket().unwrap();
 
@@ -128,15 +125,13 @@ impl Server {
                     {
                         let fmt = fmt.clone();
                         let mut stream = stream.try_clone().unwrap();
-                        writer_handles.push(std::thread::spawn(move || loop {
-                            if let Ok(msg) = rx.recv() {
+                        writer_handles.push(std::thread::spawn(move || {
+                            while let Ok(msg) = rx.recv() {
                                 if let Ok(()) = fmt.write_to(&msg, &mut stream) {
                                     info!("Server: Sent to {}, msg: {:?}", addr, msg);
                                 } else {
                                     break;
                                 }
-                            } else {
-                                break;
                             }
                         }));
                     }
@@ -230,19 +225,13 @@ impl Client {
             let bind_addr: SocketAddr = bind_addr.parse().map_err(|_| Error::AddrParse {
                 invalid_addr: bind_addr.to_string(),
             })?;
-            socket.bind(&bind_addr.into()).map_err(|e| Error::Io(e))?;
+            socket.bind(&bind_addr.into()).map_err(Error::Io)?;
         }
         socket
             .set_read_timeout(Some(Duration::from_millis(500)))
-            .map_err(|e| Error::Io(e))?;
-        socket
-            .connect(&connect_addr.into())
-            .map_err(|e| Error::Io(e))?;
-        let bind_addr = socket
-            .local_addr()
-            .map_err(|e| Error::Io(e))?
-            .as_socket()
-            .unwrap();
+            .map_err(Error::Io)?;
+        socket.connect(&connect_addr.into()).map_err(Error::Io)?;
+        let bind_addr = socket.local_addr().map_err(Error::Io)?.as_socket().unwrap();
 
         info!(
             "Client: Started, bind: {}, connect to: {}",
@@ -254,7 +243,7 @@ impl Client {
 
         let fmt = self.fmt.clone();
         let stop_flag = self.stop_flag.clone();
-        let mut stream: TcpStream = socket.try_clone().map_err(|e| Error::Io(e))?.into();
+        let mut stream: TcpStream = socket.try_clone().map_err(Error::Io)?.into();
         self.reader_handle = Some(std::thread::spawn(move || loop {
             if stop_flag.load(Ordering::Relaxed) {
                 break;
@@ -276,16 +265,14 @@ impl Client {
         let (tx, rx) = channel::<Message>();
 
         let fmt = self.fmt.clone();
-        let mut stream: TcpStream = socket.try_clone().map_err(|e| Error::Io(e))?.into();
-        self.writer_handle = Some(std::thread::spawn(move || loop {
-            if let Ok(msg) = rx.recv() {
+        let mut stream: TcpStream = socket.try_clone().map_err(Error::Io)?.into();
+        self.writer_handle = Some(std::thread::spawn(move || {
+            while let Ok(msg) = rx.recv() {
                 if let Ok(()) = fmt.write_to(&msg, &mut stream) {
                     info!("Client: Sent to {}, msg: {:?}", &connect_addr, &msg);
                 } else {
                     break;
                 }
-            } else {
-                break;
             }
         }));
 

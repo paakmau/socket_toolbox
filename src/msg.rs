@@ -54,8 +54,14 @@ enum LenError {
 impl LenError {
     fn get_global_error(&self, data_idx: usize) -> Error {
         match self {
-            &Self::LenIdxOutOfBound { len_idx } => Error::LenIdxOutOfBound { data_idx, len_idx },
-            &Self::NotALen { len_idx } => Error::NotALen { data_idx, len_idx },
+            Self::LenIdxOutOfBound { len_idx } => Error::LenIdxOutOfBound {
+                data_idx,
+                len_idx: *len_idx,
+            },
+            Self::NotALen { len_idx } => Error::NotALen {
+                data_idx,
+                len_idx: *len_idx,
+            },
         }
     }
 }
@@ -71,7 +77,7 @@ enum ReadError {
 type ReadResult = result::Result<DataValue, ReadError>;
 
 impl DataFormat {
-    fn len(&self, values: &Vec<DataValue>) -> LenResult {
+    fn len(&self, values: &[DataValue]) -> LenResult {
         match self {
             Self::Len { len, data_idx: _ } => Ok(*len),
             Self::Uint { len } => Ok(*len),
@@ -201,11 +207,11 @@ impl DataFormat {
             ) => stream.write_all(buf.as_slice()),
             _ => panic!(),
         }
-        .map_err(|e| Error::Io(e))?;
+        .map_err(Error::Io)?;
         Ok(())
     }
 
-    fn len_by_idx(len_idx: usize, values: &Vec<DataValue>) -> LenResult {
+    fn len_by_idx(len_idx: usize, values: &[DataValue]) -> LenResult {
         if let Some(value) = values.get(len_idx) {
             match value {
                 DataValue::Len(v) => Ok(*v as usize),
@@ -231,9 +237,9 @@ impl MessageFormat {
         self.data_fmts.is_empty()
     }
 
-    pub fn decode(&self, buf: &Vec<u8>) -> Result<Message> {
+    pub fn decode(&self, buf: &[u8]) -> Result<Message> {
         let mut values = Vec::<DataValue>::with_capacity(self.data_fmts.len());
-        let mut slice = buf.as_slice();
+        let mut slice = buf;
         for (idx, data_fmt) in self.data_fmts.iter().enumerate() {
             let len = data_fmt.len(&values).map_err(|e| e.get_global_error(idx))?;
             values.push(
