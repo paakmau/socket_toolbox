@@ -1,6 +1,7 @@
 use eframe::{egui, epi};
 use hex::ToHex;
 use msg::{DataFormat, DataValue};
+use simplelog::SimpleLogger;
 use strum::IntoEnumIterator;
 
 mod error;
@@ -166,6 +167,8 @@ impl epi::App for App {
 }
 
 fn main() {
+    SimpleLogger::init(log::LevelFilter::Info, Default::default()).unwrap();
+
     let app = App::default();
     eframe::run_native(Box::new(app), Default::default());
 }
