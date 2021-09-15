@@ -110,77 +110,101 @@ impl epi::App for App {
         } = self;
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            for (idx, (fmt, value)) in data_fmts.iter_mut().zip(data_values.iter_mut()).enumerate()
-            {
-                let mut kind = DataKind::from_data_format(fmt);
-                egui::ComboBox::from_id_source(idx)
-                    .selected_text(kind.to_string())
-                    .show_ui(ui, |ui| {
-                        for k in DataKind::iter() {
-                            ui.selectable_value(&mut kind, k.clone(), k.to_string());
-                        }
-                        if kind != DataKind::from_data_format(fmt) {
-                            *fmt = kind.get_default_data_format();
-                            *value = kind.get_default_data_value();
+            ui.group(|ui| {
+                ui.label("Message");
+                ui.separator();
+
+                egui::Grid::new("message")
+                    .num_columns(2)
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label("Format");
+                        ui.label("Value");
+                        ui.end_row();
+
+                        for (idx, (fmt, value)) in
+                            data_fmts.iter_mut().zip(data_values.iter_mut()).enumerate()
+                        {
+                            ui.vertical(|ui| {
+                                let mut kind = DataKind::from_data_format(fmt);
+                                egui::ComboBox::from_id_source(idx)
+                                    .selected_text(kind.to_string())
+                                    .show_ui(ui, |ui| {
+                                        for k in DataKind::iter() {
+                                            ui.selectable_value(
+                                                &mut kind,
+                                                k.clone(),
+                                                k.to_string(),
+                                            );
+                                        }
+                                        if kind != DataKind::from_data_format(fmt) {
+                                            *fmt = kind.get_default_data_format();
+                                            *value = kind.get_default_data_value();
+                                        }
+                                    });
+
+                                match fmt {
+                                    DataFormat::Len { len, data_idx } => {
+                                        let mut len_str = len.to_string();
+                                        ui.text_edit_singleline(&mut len_str);
+                                        *len = len_str.parse::<usize>().unwrap_or(1);
+                                        *len = (*len).max(1);
+
+                                        let mut data_idx_str = data_idx.to_string();
+                                        ui.text_edit_singleline(&mut data_idx_str);
+                                        *data_idx = data_idx_str.parse::<usize>().unwrap_or(0);
+                                    }
+                                    DataFormat::Uint { len }
+                                    | DataFormat::Int { len }
+                                    | DataFormat::FixedString { len }
+                                    | DataFormat::FixedBytes { len } => {
+                                        let mut len_str = len.to_string();
+                                        ui.text_edit_singleline(&mut len_str);
+                                        *len = len_str.parse::<usize>().unwrap_or(1);
+                                        *len = (*len).max(1);
+                                    }
+                                    DataFormat::VarString { len_idx }
+                                    | DataFormat::VarBytes { len_idx } => {
+                                        let mut len_idx_str = len_idx.to_string();
+                                        ui.text_edit_singleline(&mut len_idx_str);
+                                        *len_idx = len_idx_str.parse::<usize>().unwrap_or(0);
+                                    }
+                                }
+                            });
+
+                            ui.vertical(|ui| match value {
+                                DataValue::Len(v) | DataValue::Uint(v) => {
+                                    let mut v_str = v.to_string();
+                                    ui.text_edit_singleline(&mut v_str);
+                                    *v = v_str.parse::<u64>().unwrap_or(0);
+                                }
+                                DataValue::Int(v) => {
+                                    let mut v_str = v.to_string();
+                                    ui.text_edit_singleline(&mut v_str);
+                                    *v = v_str.parse::<i64>().unwrap_or(0);
+                                }
+                                DataValue::String(s) => {
+                                    ui.text_edit_singleline(s);
+                                }
+                                DataValue::Bytes(bytes) => {
+                                    let mut bytes_str: String = bytes.encode_hex_upper();
+                                    ui.text_edit_singleline(&mut bytes_str);
+                                    *bytes = hex::decode(bytes_str).unwrap_or(Default::default());
+                                }
+                            });
+
+                            ui.end_row();
                         }
                     });
 
-                match fmt {
-                    DataFormat::Len { len, data_idx } => {
-                        let mut len_str = len.to_string();
-                        ui.text_edit_singleline(&mut len_str);
-                        *len = len_str.parse::<usize>().unwrap_or(1);
-                        *len = (*len).max(1);
-
-                        let mut data_idx_str = data_idx.to_string();
-                        ui.text_edit_singleline(&mut data_idx_str);
-                        *data_idx = data_idx_str.parse::<usize>().unwrap_or(0);
-                    }
-                    DataFormat::Uint { len }
-                    | DataFormat::Int { len }
-                    | DataFormat::FixedString { len }
-                    | DataFormat::FixedBytes { len } => {
-                        let mut len_str = len.to_string();
-                        ui.text_edit_singleline(&mut len_str);
-                        *len = len_str.parse::<usize>().unwrap_or(1);
-                        *len = (*len).max(1);
-                    }
-                    DataFormat::VarString { len_idx } | DataFormat::VarBytes { len_idx } => {
-                        let mut len_idx_str = len_idx.to_string();
-                        ui.text_edit_singleline(&mut len_idx_str);
-                        *len_idx = len_idx_str.parse::<usize>().unwrap_or(0);
-                    }
+                if ui.button("Add message item").clicked() {
+                    data_fmts.push(DataFormat::Len {
+                        len: 1,
+                        data_idx: 0,
+                    });
+                    data_values.push(DataValue::Len(0));
                 }
-
-                match value {
-                    DataValue::Len(v) | DataValue::Uint(v) => {
-                        let mut v_str = v.to_string();
-                        ui.text_edit_singleline(&mut v_str);
-                        *v = v_str.parse::<u64>().unwrap_or(0);
-                    }
-                    DataValue::Int(v) => {
-                        let mut v_str = v.to_string();
-                        ui.text_edit_singleline(&mut v_str);
-                        *v = v_str.parse::<i64>().unwrap_or(0);
-                    }
-                    DataValue::String(s) => {
-                        ui.text_edit_singleline(s);
-                    }
-                    DataValue::Bytes(bytes) => {
-                        let mut bytes_str: String = bytes.encode_hex_upper();
-                        ui.text_edit_singleline(&mut bytes_str);
-                        *bytes = hex::decode(bytes_str).unwrap_or(Default::default());
-                    }
-                }
-            }
-
-            if ui.button("Add item").clicked() {
-                data_fmts.push(DataFormat::Len {
-                    len: 1,
-                    data_idx: 0,
-                });
-                data_values.push(DataValue::Len(0));
-            }
+            });
 
             ui.label("server");
             ui.text_edit_singleline(server_addr);
