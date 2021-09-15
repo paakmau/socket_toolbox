@@ -117,6 +117,7 @@ impl epi::App for App {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.group(|ui| {
                 ui.label("Message");
+                ui.separator();
 
                 // Format should not be modified after running.
                 let can_modify_format = !*server_run_flag && !*client_run_flag;
