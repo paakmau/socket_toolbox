@@ -155,12 +155,18 @@ impl epi::App for App {
                                 match fmt {
                                     DataFormat::Len { len, data_idx } => {
                                         let mut len_str = len.to_string();
-                                        ui.text_edit_singleline(&mut len_str);
+                                        ui.horizontal(|ui| {
+                                            ui.label("Length:");
+                                            ui.text_edit_singleline(&mut len_str);
+                                        });
                                         *len = len_str.parse::<usize>().unwrap_or(1);
                                         *len = (*len).max(1);
 
                                         let mut data_idx_str = data_idx.to_string();
-                                        ui.text_edit_singleline(&mut data_idx_str);
+                                        ui.horizontal(|ui| {
+                                            ui.label("Data index:");
+                                            ui.text_edit_singleline(&mut data_idx_str);
+                                        });
                                         *data_idx = data_idx_str.parse::<usize>().unwrap_or(0);
                                     }
                                     DataFormat::Uint { len }
@@ -168,14 +174,20 @@ impl epi::App for App {
                                     | DataFormat::FixedString { len }
                                     | DataFormat::FixedBytes { len } => {
                                         let mut len_str = len.to_string();
-                                        ui.text_edit_singleline(&mut len_str);
+                                        ui.horizontal(|ui| {
+                                            ui.label("Length:");
+                                            ui.text_edit_singleline(&mut len_str);
+                                        });
                                         *len = len_str.parse::<usize>().unwrap_or(1);
                                         *len = (*len).max(1);
                                     }
                                     DataFormat::VarString { len_idx }
                                     | DataFormat::VarBytes { len_idx } => {
                                         let mut len_idx_str = len_idx.to_string();
-                                        ui.text_edit_singleline(&mut len_idx_str);
+                                        ui.horizontal(|ui| {
+                                            ui.label("Length index:");
+                                            ui.text_edit_singleline(&mut len_idx_str);
+                                        });
                                         *len_idx = len_idx_str.parse::<usize>().unwrap_or(0);
                                     }
                                 }
