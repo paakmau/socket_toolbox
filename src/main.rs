@@ -47,11 +47,11 @@ impl DataKind {
                 len: 0,
                 data_idx: 0,
             },
-            DataKind::Uint => DataFormat::Uint { len: 0 },
-            DataKind::Int => DataFormat::Int { len: 0 },
-            DataKind::FixedString => DataFormat::FixedString { len: 0 },
+            DataKind::Uint => DataFormat::Uint { len: 1 },
+            DataKind::Int => DataFormat::Int { len: 1 },
+            DataKind::FixedString => DataFormat::FixedString { len: 1 },
             DataKind::VarString => DataFormat::VarString { len_idx: 0 },
-            DataKind::FixedBytes => DataFormat::FixedBytes { len: 0 },
+            DataKind::FixedBytes => DataFormat::FixedBytes { len: 1 },
             DataKind::VarBytes => DataFormat::VarBytes { len_idx: 0 },
         }
     }
