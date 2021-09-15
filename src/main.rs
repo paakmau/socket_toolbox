@@ -6,6 +6,7 @@ use strum::IntoEnumIterator;
 mod error;
 mod msg;
 mod socket;
+mod ui;
 
 #[derive(Debug, Clone, PartialEq, strum::ToString, strum::EnumIter)]
 enum DataKind {
