@@ -1,7 +1,9 @@
 use eframe::{egui, epi};
 use hex::ToHex;
-use msg::{DataFormat, DataValue};
+use log::warn;
+use msg::{DataFormat, DataValue, Message, MessageFormat};
 use simplelog::SimpleLogger;
+use socket::{Client, Server};
 use strum::IntoEnumIterator;
 
 mod error;
@@ -68,6 +70,15 @@ impl DataKind {
 struct App {
     data_fmts: Vec<DataFormat>,
     data_values: Vec<DataValue>,
+
+    client_addr: String,
+    client_run_flag: bool,
+    client: Option<Client>,
+
+    server_addr: String,
+    server_run_flag: bool,
+    server: Option<Server>,
+    server_target_addr: String,
 }
 
 impl epi::App for App {
@@ -89,6 +100,13 @@ impl epi::App for App {
         let Self {
             data_fmts,
             data_values,
+            client_addr,
+            client_run_flag,
+            client,
+            server_addr,
+            server_run_flag,
+            server,
+            server_target_addr,
         } = self;
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -155,12 +173,88 @@ impl epi::App for App {
                     }
                 }
             }
+
             if ui.button("Add item").clicked() {
                 data_fmts.push(DataFormat::Len {
                     len: 1,
                     data_idx: 0,
                 });
                 data_values.push(DataValue::Len(0));
+            }
+
+            ui.label("server");
+            ui.text_edit_singleline(server_addr);
+            if ui.add(ui::toggle(server_run_flag)).clicked() {
+                if *server_run_flag {
+                    let mut new_server = Server::new(MessageFormat::new(data_fmts.clone()));
+                    new_server.run(server_addr).err().iter().for_each(|e| {
+                        warn!(
+                            "App: Error occurs when run server on `{}`, details: {}",
+                            server_addr, e
+                        )
+                    });
+                    server.replace(new_server);
+                } else {
+                    server.take().unwrap().stop();
+                }
+            }
+
+            ui.text_edit_singleline(server_target_addr);
+            if ui
+                .add(egui::Button::new("send message").enabled(*server_run_flag))
+                .clicked()
+            {
+                server
+                    .as_mut()
+                    .unwrap()
+                    .send_msg(server_target_addr, Message::new(data_values.clone()))
+                    .err()
+                    .iter()
+                    .for_each(|e| {
+                        warn!(
+                            "App: Error occurs when send message to client `{}`, details: {}",
+                            server_target_addr, e
+                        );
+                    });
+            }
+
+            ui.label("client");
+            ui.text_edit_singleline(client_addr);
+            if ui.add(ui::toggle(client_run_flag)).clicked() {
+                if *client_run_flag {
+                    let mut new_client = Client::new(MessageFormat::new(data_fmts.clone()));
+                    new_client
+                        .run(None, client_addr)
+                        .err()
+                        .iter()
+                        .for_each(|e| {
+                            warn!(
+                                "App: Error occurs when run server on `{}`, details: {}",
+                                server_addr, e
+                            )
+                        });
+                    client.replace(new_client);
+                } else {
+                    client.take().unwrap().stop();
+                }
+            }
+
+            if ui
+                .add(egui::Button::new("send message").enabled(*client_run_flag))
+                .clicked()
+            {
+                client
+                    .as_mut()
+                    .unwrap()
+                    .send_msg(Message::new(data_values.clone()))
+                    .err()
+                    .iter()
+                    .for_each(|e| {
+                        warn!(
+                            "App: Error occurs when send message to server, details: {}",
+                            e
+                        );
+                    });
             }
         });
     }
