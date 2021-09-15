@@ -29,10 +29,6 @@ impl Message {
     pub fn new(values: Vec<DataValue>) -> Self {
         Self { values }
     }
-
-    pub fn values(&self) -> &Vec<DataValue> {
-        &self.values
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -225,14 +221,6 @@ pub struct MessageFormat {
 impl MessageFormat {
     pub fn new(data_fmts: Vec<DataFormat>) -> Self {
         MessageFormat { data_fmts }
-    }
-
-    pub fn data_fmts(&self) -> &Vec<DataFormat> {
-        &self.data_fmts
-    }
-
-    pub fn len(&self) -> usize {
-        self.data_fmts.len()
     }
 
     pub fn is_empty(&self) -> bool {
