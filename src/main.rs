@@ -264,7 +264,7 @@ impl epi::App for App {
 
             ui.label("client");
 
-            // Server listen address should not be modified while running.
+            // Client listen address should not be modified while running.
             TextEdit::singleline(client_connect_addr)
                 .enabled(!*client_run_flag)
                 .ui(ui);
