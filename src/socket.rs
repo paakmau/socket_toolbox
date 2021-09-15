@@ -295,3 +295,60 @@ impl Client {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{thread::sleep, time::Duration};
+
+    use simplelog::SimpleLogger;
+
+    use crate::{
+        msg::{DataFormat, DataValue, Message, MessageFormat},
+        socket::Client,
+    };
+
+    use super::Server;
+
+    const SERVER_ADDR: &str = "127.0.0.1:0";
+
+    #[test]
+    fn send_msg_ok() {
+        SimpleLogger::init(log::LevelFilter::Debug, Default::default()).unwrap();
+
+        let fmt = MessageFormat::new(vec![
+            DataFormat::Uint { len: 2 },
+            DataFormat::Int { len: 1 },
+        ]);
+
+        let msg_client_1 = Message::new(vec![DataValue::Uint(255), DataValue::Int(7)]);
+        let msg_client_2 = Message::new(vec![DataValue::Uint(0), DataValue::Int(-8)]);
+
+        let msg_server_1 = Message::new(vec![DataValue::Uint(255), DataValue::Int(7)]);
+        let msg_server_2 = Message::new(vec![DataValue::Uint(0), DataValue::Int(-8)]);
+
+        let mut s = Server::new(fmt.clone());
+        let mut c = Client::new(fmt);
+
+        s.run(SERVER_ADDR).unwrap();
+        let server_addr = s.listen_addr().as_ref().unwrap().clone();
+
+        c.run(None, &server_addr).unwrap();
+        let client_addr = c.bind_addr().as_ref().unwrap().clone();
+
+        while s.client_len() == 0 {
+            sleep(Duration::from_millis(500));
+        }
+
+        c.send_msg(msg_client_1).unwrap();
+        c.send_msg(msg_client_2).unwrap();
+
+        s.send_msg(&client_addr, msg_server_1).unwrap();
+        s.send_msg(&client_addr, msg_server_2).unwrap();
+
+        s.stop().unwrap();
+        c.stop().unwrap();
+    }
+
+    #[test]
+    fn send_to_client_ok() {}
+}
