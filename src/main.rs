@@ -1,5 +1,5 @@
 use eframe::{
-    egui::{self, Widget},
+    egui::{self, TextEdit, Widget},
     epi,
 };
 use hex::ToHex;
@@ -74,11 +74,11 @@ struct App {
     data_fmts: Vec<DataFormat>,
     data_values: Vec<DataValue>,
 
-    client_addr: String,
+    client_connect_addr: String,
     client_run_flag: bool,
     client: Option<Client>,
 
-    server_addr: String,
+    server_listen_addr: String,
     server_run_flag: bool,
     server: Option<Server>,
     server_target_addr: String,
@@ -103,10 +103,10 @@ impl epi::App for App {
         let Self {
             data_fmts,
             data_values,
-            client_addr,
+            client_connect_addr,
             client_run_flag,
             client,
-            server_addr,
+            server_listen_addr,
             server_run_flag,
             server,
             server_target_addr,
@@ -219,14 +219,23 @@ impl epi::App for App {
             });
 
             ui.label("server");
-            ui.text_edit_singleline(server_addr);
+
+            // Server listen address should not be modified while running.
+            TextEdit::singleline(server_listen_addr)
+                .enabled(!*server_run_flag)
+                .ui(ui);
+
             if ui.add(ui::toggle(server_run_flag)).clicked() {
                 if *server_run_flag {
                     let mut new_server = Server::new(MessageFormat::new(data_fmts.clone()));
-                    new_server.run(server_addr).err().iter().for_each(|e| {
-                        warn!("App: Error occurs when run server, details: {}", e);
-                        *server_run_flag = false;
-                    });
+                    new_server
+                        .run(server_listen_addr)
+                        .err()
+                        .iter()
+                        .for_each(|e| {
+                            warn!("App: Error occurs when run server, details: {}", e);
+                            *server_run_flag = false;
+                        });
                     server.replace(new_server);
                 } else {
                     server.take().unwrap().stop();
@@ -253,12 +262,15 @@ impl epi::App for App {
             }
 
             ui.label("client");
-            ui.text_edit_singleline(client_addr);
+
+            // Server listen address should not be modified while running.
+            TextEdit::singleline(client_connect_addr).enabled(!*client_run_flag).ui(ui);
+
             if ui.add(ui::toggle(client_run_flag)).clicked() {
                 if *client_run_flag {
                     let mut new_client = Client::new(MessageFormat::new(data_fmts.clone()));
                     new_client
-                        .run(None, client_addr)
+                        .run(None, client_connect_addr)
                         .err()
                         .iter()
                         .for_each(|e| {
