@@ -187,11 +187,10 @@ impl epi::App for App {
             if ui.add(ui::toggle(server_run_flag)).clicked() {
                 if *server_run_flag {
                     let mut new_server = Server::new(MessageFormat::new(data_fmts.clone()));
-                    new_server
-                        .run(server_addr)
-                        .err()
-                        .iter()
-                        .for_each(|e| warn!("App: Error occurs when run server, details: {}", e));
+                    new_server.run(server_addr).err().iter().for_each(|e| {
+                        warn!("App: Error occurs when run server, details: {}", e);
+                        *server_run_flag = false;
+                    });
                     server.replace(new_server);
                 } else {
                     server.take().unwrap().stop();
@@ -226,7 +225,10 @@ impl epi::App for App {
                         .run(None, client_addr)
                         .err()
                         .iter()
-                        .for_each(|e| warn!("App: Error occurs when run client, details: {}", e));
+                        .for_each(|e| {
+                            warn!("App: Error occurs when run client, details: {}", e);
+                            *client_run_flag = false;
+                        });
                     client.replace(new_client);
                 } else {
                     client.take().unwrap().stop();
