@@ -29,6 +29,10 @@ impl Message {
     pub fn new(values: Vec<DataValue>) -> Self {
         Self { values }
     }
+
+    pub fn values(&self) -> &Vec<DataValue> {
+        &self.values
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
