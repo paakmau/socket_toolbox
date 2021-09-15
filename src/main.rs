@@ -74,6 +74,7 @@ struct App {
     data_fmts: Vec<DataFormat>,
     data_values: Vec<DataValue>,
 
+    client_bind_addr: String,
     client_connect_addr: String,
     client_run_flag: bool,
     client: Option<Client>,
@@ -103,6 +104,7 @@ impl epi::App for App {
         let Self {
             data_fmts,
             data_values,
+            client_bind_addr,
             client_connect_addr,
             client_run_flag,
             client,
@@ -264,6 +266,11 @@ impl epi::App for App {
 
             ui.label("client");
 
+            // Client bind address should not be modified while running.
+            TextEdit::singleline(client_bind_addr)
+                .enabled(!*client_run_flag)
+                .ui(ui);
+
             // Client listen address should not be modified while running.
             TextEdit::singleline(client_connect_addr)
                 .enabled(!*client_run_flag)
@@ -272,15 +279,28 @@ impl epi::App for App {
             if ui.add(ui::toggle(client_run_flag)).clicked() {
                 if *client_run_flag {
                     let mut new_client = Client::new(MessageFormat::new(data_fmts.clone()));
+
+                    let bind_addr;
+                    if client_bind_addr.is_empty() {
+                        bind_addr = None;
+                    } else {
+                        bind_addr = Some(client_bind_addr.as_str())
+                    }
+
                     new_client
-                        .run(None, client_connect_addr)
+                        .run(bind_addr, client_connect_addr)
                         .err()
                         .iter()
                         .for_each(|e| {
                             warn!("App: Error occurs when run client, details: {}", e);
                             *client_run_flag = false;
                         });
-                    client.replace(new_client);
+
+                    if *client_run_flag {
+                        *client_bind_addr = new_client.bind_addr().as_ref().unwrap().clone();
+
+                        client.replace(new_client);
+                    }
                 } else {
                     client.take().unwrap().stop();
                 }
