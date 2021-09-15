@@ -177,6 +177,7 @@ pub struct Client {
 
     stop_flag: Arc<AtomicBool>,
 
+    bind_addr: Option<String>,
     tx: Arc<Mutex<Option<Sender<Message>>>>,
 
     reader_handle: Option<JoinHandle<()>>,
@@ -188,10 +189,15 @@ impl Client {
         Client {
             fmt,
             stop_flag: Arc::new(AtomicBool::new(false)),
+            bind_addr: None,
             tx: Default::default(),
             reader_handle: None,
             writer_handle: None,
         }
+    }
+
+    pub fn bind_addr(&self) -> &Option<String> {
+        &self.bind_addr
     }
 
     pub fn run(&mut self, bind_addr: Option<&str>, connect_addr: &str) -> Result<(), ()> {
@@ -214,6 +220,7 @@ impl Client {
         );
 
         self.stop_flag.store(false, Ordering::Relaxed);
+        self.bind_addr = Some(bind_addr.to_string());
 
         let fmt = self.fmt.clone();
         let stop_flag = self.stop_flag.clone();
@@ -262,6 +269,7 @@ impl Client {
             (self.reader_handle.take(), self.writer_handle.take())
         {
             self.stop_flag.store(true, Ordering::Relaxed);
+            self.bind_addr = None;
             {
                 let mut tx = self.tx.lock().unwrap();
                 tx.take();
