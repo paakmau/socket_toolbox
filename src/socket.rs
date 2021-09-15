@@ -149,6 +149,7 @@ impl Server {
     pub fn stop(&mut self) -> Result<(), ()> {
         if let Some(handle) = self.handle.take() {
             self.stop_flag.store(true, Ordering::Relaxed);
+            self.listen_addr = None;
             {
                 let mut tx_map = self.tx_map.lock().unwrap();
                 tx_map.clear();
