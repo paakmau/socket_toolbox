@@ -49,7 +49,12 @@ impl Server {
         self.tx_map.lock().unwrap().len()
     }
 
-    pub fn run(&mut self, listen_addr: &str) -> Result<()> {
+    pub fn run(&mut self, listen_addr: Option<&str>) -> Result<()> {
+        let listen_addr = match listen_addr {
+            Some(a) => a,
+            None => "127.0.0.1:0",
+        };
+
         let listen_addr: SocketAddr = listen_addr.parse().map_err(|_| Error::AddrParse {
             invalid_addr: listen_addr.to_string(),
         })?;
@@ -321,8 +326,6 @@ mod tests {
 
     use super::Server;
 
-    const SERVER_ADDR: &str = "127.0.0.1:0";
-
     #[test]
     fn send_msg_ok() {
         SimpleLogger::init(log::LevelFilter::Debug, Default::default()).unwrap();
@@ -341,7 +344,7 @@ mod tests {
         let mut s = Server::new(fmt.clone());
         let mut c = Client::new(fmt);
 
-        s.run(SERVER_ADDR).unwrap();
+        s.run(None).unwrap();
         let server_addr = s.listen_addr().as_ref().unwrap().clone();
 
         c.run(None, &server_addr).unwrap();

@@ -230,14 +230,17 @@ impl epi::App for App {
             if ui.add(ui::toggle(server_run_flag)).clicked() {
                 if *server_run_flag {
                     let mut new_server = Server::new(MessageFormat::new(data_fmts.clone()));
-                    new_server
-                        .run(server_listen_addr)
-                        .err()
-                        .iter()
-                        .for_each(|e| {
-                            warn!("App: Error occurs when run server, details: {}", e);
-                            *server_run_flag = false;
-                        });
+
+                    let listen_addr = if server_listen_addr.is_empty() {
+                        None
+                    } else {
+                        Some(server_listen_addr.as_str())
+                    };
+
+                    new_server.run(listen_addr).err().iter().for_each(|e| {
+                        warn!("App: Error occurs when run server, details: {}", e);
+                        *server_run_flag = false;
+                    });
 
                     if *server_run_flag {
                         *server_listen_addr = new_server.listen_addr().as_ref().unwrap().clone();
