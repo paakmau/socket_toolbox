@@ -45,6 +45,10 @@ impl Server {
         &self.listen_addr
     }
 
+    pub fn client_len(&self) -> usize {
+        self.tx_map.lock().unwrap().len()
+    }
+
     pub fn run(&mut self, listen_addr: &str) -> Result<(), ()> {
         let listen_addr: SocketAddr = listen_addr.parse().map_err(|_| ())?;
 
