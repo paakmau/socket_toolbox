@@ -24,6 +24,7 @@ pub struct Server {
 
     stop_flag: Arc<AtomicBool>,
 
+    listen_addr: Option<SocketAddr>,
     tx_map: Arc<Mutex<HashMap<String, Sender<Message>>>>,
 
     handle: Option<JoinHandle<()>>,
@@ -34,9 +35,14 @@ impl Server {
         Self {
             fmt,
             stop_flag: Arc::new(AtomicBool::new(false)),
+            listen_addr: None,
             tx_map: Default::default(),
             handle: None,
         }
+    }
+
+    pub fn listen_addr(&self) -> &Option<SocketAddr> {
+        &self.listen_addr
     }
 
     pub fn run(&mut self, listen_addr: &str) -> Result<(), ()> {
@@ -48,9 +54,12 @@ impl Server {
         socket.bind(&listen_addr.into()).map_err(|_| ())?;
         socket.listen(2).map_err(|_| ())?;
 
+        let listen_addr = socket.local_addr().unwrap().as_socket().unwrap();
+
         info!("Server: Started, listen: {}", &listen_addr);
 
         self.stop_flag.store(false, Ordering::Relaxed);
+        self.listen_addr = Some(listen_addr);
 
         let fmt = self.fmt.clone();
         let listener: TcpListener = socket.try_clone().unwrap().into();
