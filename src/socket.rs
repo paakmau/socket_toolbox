@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    net::{SocketAddr, TcpListener, TcpStream},
+    net::{AddrParseError, SocketAddr, TcpListener, TcpStream},
     ops::Deref,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -15,7 +15,7 @@ use log::{info, warn};
 use socket2::{Domain, Protocol, Socket, Type};
 
 use crate::{
-    error::Error,
+    error::{Error, Result},
     msg::{Message, MessageFormat},
 };
 
@@ -49,14 +49,16 @@ impl Server {
         self.tx_map.lock().unwrap().len()
     }
 
-    pub fn run(&mut self, listen_addr: &str) -> Result<(), ()> {
-        let listen_addr: SocketAddr = listen_addr.parse().map_err(|_| ())?;
+    pub fn run(&mut self, listen_addr: &str) -> Result<()> {
+        let listen_addr: SocketAddr = listen_addr.parse().map_err(|_| Error::AddrParse {
+            invalid_addr: listen_addr.to_string(),
+        })?;
 
-        let socket =
-            Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).map_err(|_| ())?;
-        socket.set_nonblocking(true).map_err(|_| ())?;
-        socket.bind(&listen_addr.into()).map_err(|_| ())?;
-        socket.listen(2).map_err(|_| ())?;
+        let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))
+            .map_err(|e| Error::Io(e))?;
+        socket.set_nonblocking(true).map_err(|e| Error::Io(e))?;
+        socket.bind(&listen_addr.into()).map_err(|e| Error::Io(e))?;
+        socket.listen(2).map_err(|e| Error::Io(e))?;
 
         let listen_addr = socket.local_addr().unwrap().as_socket().unwrap();
 
@@ -150,7 +152,7 @@ impl Server {
         Ok(())
     }
 
-    pub fn stop(&mut self) -> Result<(), ()> {
+    pub fn stop(&mut self) -> Result<()> {
         if let Some(handle) = self.handle.take() {
             self.stop_flag.store(true, Ordering::Relaxed);
             self.listen_addr = None;
@@ -158,20 +160,22 @@ impl Server {
                 let mut tx_map = self.tx_map.lock().unwrap();
                 tx_map.clear();
             }
-            handle.join().map_err(|_| ())?;
+            handle.join().unwrap();
             Ok(())
         } else {
-            Err(())
+            panic!();
         }
     }
 
-    pub fn send_msg(&mut self, addr: &str, msg: Message) -> Result<(), ()> {
+    pub fn send_msg(&mut self, addr: &str, msg: Message) -> Result<()> {
         let tx_map = self.tx_map.lock().unwrap();
         if let Some(tx) = tx_map.get(addr) {
             tx.send(msg).unwrap();
             Ok(())
         } else {
-            Err(())
+            Err(Error::NoSuchClient {
+                addr: addr.to_string(),
+            })
         }
     }
 }
@@ -204,19 +208,29 @@ impl Client {
         &self.bind_addr
     }
 
-    pub fn run(&mut self, bind_addr: Option<&str>, connect_addr: &str) -> Result<(), ()> {
-        let connect_addr: SocketAddr = connect_addr.parse().map_err(|_| ())?;
+    pub fn run(&mut self, bind_addr: Option<&str>, connect_addr: &str) -> Result<()> {
+        let connect_addr: SocketAddr = connect_addr.parse().map_err(|_| Error::AddrParse {
+            invalid_addr: connect_addr.to_string(),
+        })?;
 
         let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).unwrap();
         if let Some(bind_addr) = bind_addr {
-            let bind_addr: SocketAddr = bind_addr.parse().map_err(|_| ()).map_err(|_| ())?;
-            socket.bind(&bind_addr.into()).map_err(|_| ())?;
+            let bind_addr: SocketAddr = bind_addr.parse().map_err(|_| Error::AddrParse {
+                invalid_addr: bind_addr.to_string(),
+            })?;
+            socket.bind(&bind_addr.into()).map_err(|e| Error::Io(e))?;
         }
         socket
             .set_read_timeout(Some(Duration::from_millis(500)))
+            .map_err(|e| Error::Io(e))?;
+        socket
+            .connect(&connect_addr.into())
+            .map_err(|e| Error::Io(e))?;
+        let bind_addr = socket
+            .local_addr()
+            .map_err(|e| Error::Io(e))?
+            .as_socket()
             .unwrap();
-        socket.connect(&connect_addr.into()).map_err(|_| ())?;
-        let bind_addr = socket.local_addr().map_err(|_| ())?.as_socket().ok_or(())?;
 
         info!(
             "Client: Started, bind: {}, connect to: {}",
@@ -228,7 +242,7 @@ impl Client {
 
         let fmt = self.fmt.clone();
         let stop_flag = self.stop_flag.clone();
-        let mut stream: TcpStream = socket.try_clone().map_err(|_| ())?.into();
+        let mut stream: TcpStream = socket.try_clone().map_err(|e| Error::Io(e))?.into();
         self.reader_handle = Some(std::thread::spawn(move || loop {
             if stop_flag.load(Ordering::Relaxed) {
                 break;
@@ -250,7 +264,7 @@ impl Client {
         let (tx, rx) = channel::<Message>();
 
         let fmt = self.fmt.clone();
-        let mut stream: TcpStream = socket.try_clone().map_err(|_| ())?.into();
+        let mut stream: TcpStream = socket.try_clone().map_err(|e| Error::Io(e))?.into();
         self.writer_handle = Some(std::thread::spawn(move || loop {
             if let Ok(msg) = rx.recv() {
                 if let Ok(()) = fmt.write_to(&msg, &mut stream) {
@@ -268,7 +282,7 @@ impl Client {
         Ok(())
     }
 
-    pub fn stop(&mut self) -> Result<(), ()> {
+    pub fn stop(&mut self) -> Result<()> {
         if let (Some(reader_handle), Some(writer_handle)) =
             (self.reader_handle.take(), self.writer_handle.take())
         {
@@ -278,20 +292,20 @@ impl Client {
                 let mut tx = self.tx.lock().unwrap();
                 tx.take();
             }
-            reader_handle.join().map_err(|_| ())?;
-            writer_handle.join().map_err(|_| ())?;
+            reader_handle.join().unwrap();
+            writer_handle.join().unwrap();
             Ok(())
         } else {
-            Err(())
+            panic!();
         }
     }
 
-    pub fn send_msg(&mut self, msg: Message) -> Result<(), ()> {
+    pub fn send_msg(&mut self, msg: Message) -> Result<()> {
         if let Some(tx) = self.tx.lock().unwrap().deref() {
             tx.send(msg).unwrap();
             Ok(())
         } else {
-            Err(())
+            Err(Error::NotConnected)
         }
     }
 }
