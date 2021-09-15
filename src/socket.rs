@@ -11,10 +11,13 @@ use std::{
     time::Duration,
 };
 
-use log::info;
+use log::{info, warn};
 use socket2::{Domain, Protocol, Socket, Type};
 
-use crate::msg::{Message, MessageFormat};
+use crate::{
+    error::Error,
+    msg::{Message, MessageFormat},
+};
 
 pub struct Server {
     fmt: MessageFormat,
@@ -79,11 +82,19 @@ impl Server {
                                 break;
                             }
 
-                            if let Ok(msg) = fmt.read_from(&mut stream) {
-                                info!("Server: Received from {}, msg: {:?}", addr, msg);
-                            } else {
-                                // TODO: We need a error handling here
-                                sleep(Duration::from_micros(500));
+                            match fmt.read_from(&mut stream) {
+                                Ok(msg) => {
+                                    info!("Server: Received from {}, msg: {:?}", addr, msg);
+                                }
+                                Err(Error::Eof) => {
+                                    break;
+                                }
+                                Err(e) => {
+                                    warn!(
+                                        "Server: Error occurs while reading message, error: {}",
+                                        e
+                                    );
+                                }
                             }
                         }));
                     }
@@ -202,10 +213,16 @@ impl Client {
                 break;
             }
 
-            if let Ok(msg) = fmt.read_from(&mut stream) {
-                info!("Client: Received from {}, msg: {:?}", &connect_addr, &msg);
-            } else {
-                continue;
+            match fmt.read_from(&mut stream) {
+                Ok(msg) => {
+                    info!("Client: Received from {}, msg: {:?}", &connect_addr, &msg);
+                }
+                Err(Error::Eof) => {
+                    break;
+                }
+                Err(e) => {
+                    warn!("Client: Error occurs while reading message, details: {}", e);
+                }
             }
         }));
 

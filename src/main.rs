@@ -3,6 +3,7 @@ use hex::ToHex;
 use msg::{DataFormat, DataValue};
 use strum::IntoEnumIterator;
 
+mod error;
 mod msg;
 mod socket;
 
