@@ -157,7 +157,9 @@ impl DataFormat {
             | Self::VarBytes { len_idx: _ } => stream.read_exact(&mut bytes_buf),
         } {
             match e.kind() {
-                io::ErrorKind::UnexpectedEof => return Err(ReadError::Eof),
+                io::ErrorKind::UnexpectedEof | io::ErrorKind::ConnectionReset => {
+                    return Err(ReadError::Eof)
+                }
                 io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => {
                     sleep(Duration::from_millis(500))
                 }
