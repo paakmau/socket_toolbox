@@ -236,6 +236,7 @@ impl epi::App for App {
                             warn!("App: Error occurs when run server, details: {}", e);
                             *server_run_flag = false;
                         });
+                    *server_listen_addr = new_server.listen_addr().as_ref().unwrap().clone();
                     server.replace(new_server);
                 } else {
                     server.take().unwrap().stop();
@@ -264,7 +265,9 @@ impl epi::App for App {
             ui.label("client");
 
             // Server listen address should not be modified while running.
-            TextEdit::singleline(client_connect_addr).enabled(!*client_run_flag).ui(ui);
+            TextEdit::singleline(client_connect_addr)
+                .enabled(!*client_run_flag)
+                .ui(ui);
 
             if ui.add(ui::toggle(client_run_flag)).clicked() {
                 if *client_run_flag {
