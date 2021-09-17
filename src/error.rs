@@ -29,6 +29,9 @@ pub enum Error {
     #[error("no more bytes can be read")]
     Eof,
 
+    #[error("socket need to be stopped")]
+    Stopped,
+
     #[error("the bytes can not be converted to a utf8 string, index of data: {data_idx}")]
     FromUtf8 {
         data_idx: usize,

@@ -3,6 +3,10 @@ use std::{
     mem::{size_of, size_of_val},
     net::TcpStream,
     result,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     thread::sleep,
     time::Duration,
 };
@@ -71,6 +75,7 @@ type LenResult = result::Result<usize, LenError>;
 enum ReadError {
     Io(std::io::Error),
     Eof,
+    Stopped,
     FromUtf8(std::string::FromUtf8Error),
 }
 
@@ -131,7 +136,12 @@ impl DataFormat {
         }
     }
 
-    fn read_from_tcp_stream(&self, len: usize, stream: &mut TcpStream) -> ReadResult {
+    fn read_from_tcp_stream(
+        &self,
+        len: usize,
+        stream: &mut TcpStream,
+        stop_flag: Arc<AtomicBool>,
+    ) -> ReadResult {
         let mut integer_buf = [0u8; size_of::<u64>()];
         let mut integer_slice = &mut integer_buf[size_of::<u64>() - len..];
 
@@ -151,7 +161,10 @@ impl DataFormat {
                     return Err(ReadError::Eof)
                 }
                 io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => {
-                    sleep(Duration::from_millis(500))
+                    if stop_flag.load(Ordering::Relaxed) {
+                        return Err(ReadError::Stopped);
+                    }
+                    sleep(Duration::from_millis(300))
                 }
                 _ => return Err(ReadError::Io(e)),
             };
@@ -262,15 +275,16 @@ impl MessageFormat {
         Ok(buf)
     }
 
-    pub fn read_from(&self, stream: &mut TcpStream) -> Result<Message> {
+    pub fn read_from(&self, stream: &mut TcpStream, stop_flag: Arc<AtomicBool>) -> Result<Message> {
         let mut values = Vec::<DataValue>::with_capacity(self.data_fmts.len());
         for (idx, data_fmt) in self.data_fmts.iter().enumerate() {
             let len = data_fmt.len(&values).map_err(|e| e.get_global_error(idx))?;
-            match data_fmt.read_from_tcp_stream(len, stream) {
+            match data_fmt.read_from_tcp_stream(len, stream, stop_flag.clone()) {
                 Ok(v) => values.push(v),
                 Err(ReadError::Io(e)) => return Err(Error::Io(e)),
                 Err(ReadError::Eof) => return Err(Error::Eof),
                 Err(ReadError::FromUtf8(e)) => return Err(Error::FromUtf8 { data_idx: idx, e }),
+                Err(ReadError::Stopped) => return Err(Error::Stopped),
             }
         }
         Ok(Message { values })

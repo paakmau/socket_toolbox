@@ -103,11 +103,11 @@ impl Server {
                                 break;
                             }
 
-                            match fmt.read_from(&mut stream) {
+                            match fmt.read_from(&mut stream, stop_flag.clone()) {
                                 Ok(msg) => {
                                     info!("Server: Received from {}, msg: {:?}", addr, msg);
                                 }
-                                Err(Error::Eof) => {
+                                Err(Error::Eof | Error::Stopped) => {
                                     break;
                                 }
                                 Err(e) => {
@@ -249,11 +249,11 @@ impl Client {
                 break;
             }
 
-            match fmt.read_from(&mut stream) {
+            match fmt.read_from(&mut stream, stop_flag.clone()) {
                 Ok(msg) => {
                     info!("Client: Received from {}, msg: {:?}", &connect_addr, &msg);
                 }
-                Err(Error::Eof) => {
+                Err(Error::Eof | Error::Stopped) => {
                     break;
                 }
                 Err(e) => {
