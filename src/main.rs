@@ -28,10 +28,7 @@ enum DataKind {
 impl DataKind {
     fn from_data_format(fmt: &DataFormat) -> Self {
         match fmt {
-            DataFormat::Len {
-                len: _,
-                data_idx: _,
-            } => Self::Len,
+            DataFormat::Len { len: _ } => Self::Len,
             DataFormat::Uint { len: _ } => Self::Uint,
             DataFormat::Int { len: _ } => Self::Int,
             DataFormat::FixedString { len: _ } => Self::FixedString,
@@ -43,10 +40,7 @@ impl DataKind {
 
     fn get_default_data_format(&self) -> DataFormat {
         match self {
-            Self::Len => DataFormat::Len {
-                len: 0,
-                data_idx: 0,
-            },
+            Self::Len => DataFormat::Len { len: 0 },
             Self::Uint => DataFormat::Uint { len: 1 },
             Self::Int => DataFormat::Int { len: 1 },
             Self::FixedString => DataFormat::FixedString { len: 1 },
@@ -157,7 +151,7 @@ impl epi::App for App {
                                     });
 
                                 match fmt {
-                                    DataFormat::Len { len, data_idx } => {
+                                    DataFormat::Len { len } => {
                                         let mut len_str = len.to_string();
                                         ui.horizontal(|ui| {
                                             ui.label("Length:");
@@ -165,13 +159,6 @@ impl epi::App for App {
                                         });
                                         *len = len_str.parse::<usize>().unwrap_or(1);
                                         *len = (*len).max(1);
-
-                                        let mut data_idx_str = data_idx.to_string();
-                                        ui.horizontal(|ui| {
-                                            ui.label("Data index:");
-                                            ui.text_edit_singleline(&mut data_idx_str);
-                                        });
-                                        *data_idx = data_idx_str.parse::<usize>().unwrap_or(0);
                                     }
                                     DataFormat::Uint { len }
                                     | DataFormat::Int { len }
@@ -262,10 +249,7 @@ impl epi::App for App {
                     .ui(ui)
                     .clicked()
                 {
-                    data_fmts.push(DataFormat::Len {
-                        len: 1,
-                        data_idx: 0,
-                    });
+                    data_fmts.push(DataFormat::Len { len: 1 });
                     data_values.push(DataValue::Len(0));
                 }
 

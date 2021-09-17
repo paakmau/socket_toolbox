@@ -37,7 +37,7 @@ impl Message {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataFormat {
-    Len { len: usize, data_idx: usize },
+    Len { len: usize },
     Uint { len: usize },
     Int { len: usize },
     FixedString { len: usize },
@@ -79,7 +79,7 @@ type ReadResult = result::Result<DataValue, ReadError>;
 impl DataFormat {
     fn len(&self, values: &[DataValue]) -> LenResult {
         match self {
-            Self::Len { len, data_idx: _ } => Ok(*len),
+            Self::Len { len } => Ok(*len),
             Self::Uint { len } => Ok(*len),
             Self::Int { len } => Ok(*len),
             Self::FixedString { len } => Ok(*len),
@@ -95,10 +95,7 @@ impl DataFormat {
         }
 
         match self {
-            Self::Len {
-                len: _,
-                data_idx: _,
-            } => Ok(DataValue::Len(buf.get_uint(len))),
+            Self::Len { len: _ } => Ok(DataValue::Len(buf.get_uint(len))),
             Self::Uint { len: _ } => Ok(DataValue::Uint(buf.get_uint(len))),
             Self::Int { len: _ } => Ok(DataValue::Int(buf.get_int(len))),
             Self::FixedString { len: _ } | Self::VarString { len_idx: _ } => {
@@ -119,7 +116,7 @@ impl DataFormat {
 
     fn write_to_buf(&self, value: &DataValue, buf: &mut &mut [u8]) {
         match (self, value) {
-            (Self::Len { len, data_idx: _ }, DataValue::Len(v)) => buf.put_uint(*v, *len),
+            (Self::Len { len }, DataValue::Len(v)) => buf.put_uint(*v, *len),
             (Self::Uint { len }, DataValue::Uint(v)) => buf.put_uint(*v, *len),
             (Self::Int { len }, DataValue::Int(v)) => buf.put_int(*v, *len),
             (
@@ -141,12 +138,9 @@ impl DataFormat {
         let mut bytes_buf = vec![0u8; len];
 
         while let Err(e) = match self {
-            Self::Len {
-                len: _,
-                data_idx: _,
+            Self::Len { len: _ } | Self::Uint { len: _ } | Self::Int { len: _ } => {
+                stream.read_exact(&mut integer_slice)
             }
-            | Self::Uint { len: _ }
-            | Self::Int { len: _ } => stream.read_exact(&mut integer_slice),
             Self::FixedString { len: _ }
             | Self::VarString { len_idx: _ }
             | Self::FixedBytes { len: _ }
@@ -164,10 +158,7 @@ impl DataFormat {
         }
 
         match self {
-            Self::Len {
-                len: _,
-                data_idx: _,
-            } => Ok(DataValue::Len(u64::from_be_bytes(integer_buf))),
+            Self::Len { len: _ } => Ok(DataValue::Len(u64::from_be_bytes(integer_buf))),
             Self::Uint { len: _ } => Ok(DataValue::Uint(u64::from_be_bytes(integer_buf))),
             Self::Int { len: _ } => {
                 let mut v = i64::from_be_bytes(integer_buf);
@@ -190,8 +181,7 @@ impl DataFormat {
 
     fn write_to_tcp_stream(&self, value: &DataValue, stream: &mut TcpStream) -> Result<()> {
         match (self, value) {
-            (Self::Len { len, data_idx: _ }, DataValue::Len(v))
-            | (Self::Uint { len }, DataValue::Uint(v)) => {
+            (Self::Len { len }, DataValue::Len(v)) | (Self::Uint { len }, DataValue::Uint(v)) => {
                 stream.write_all(&v.to_be_bytes()[size_of_val(v) - *len..])
             }
             (Self::Int { len }, DataValue::Int(v)) => {
