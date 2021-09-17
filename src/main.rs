@@ -134,13 +134,12 @@ impl epi::App for App {
                         ui.end_row();
 
                         let mut removed_idx = None;
-                        for (idx, (fmt, value)) in
-                            data_fmts.iter_mut().zip(data_values.iter_mut()).enumerate()
-                        {
+                        for (idx, fmt) in data_fmts.iter_mut().enumerate() {
                             ui.vertical(|ui| {
                                 ui.set_enabled(can_modify_format);
 
                                 let mut kind = DataKind::from_data_format(fmt);
+                                let value = &mut data_values[idx];
                                 egui::ComboBox::from_id_source(idx)
                                     .selected_text(kind.to_string())
                                     .show_ui(ui, |ui| {
@@ -203,8 +202,12 @@ impl epi::App for App {
                                     removed_idx = Some(idx);
                                 }
 
+                                let value = &mut data_values[idx];
                                 match value {
-                                    DataValue::Len(v) | DataValue::Uint(v) => {
+                                    DataValue::Len(v) => {
+                                        ui.label(v.to_string());
+                                    }
+                                    DataValue::Uint(v) => {
                                         let mut v_str = v.to_string();
                                         ui.text_edit_singleline(&mut v_str);
                                         *v = v_str.parse::<u64>().unwrap_or(0);
@@ -216,11 +219,31 @@ impl epi::App for App {
                                     }
                                     DataValue::String(s) => {
                                         ui.text_edit_singleline(s);
+
+                                        // Update the Len
+                                        if let DataFormat::VarString { len_idx } = fmt {
+                                            let s_len = s.len() as u64;
+                                            if let Some(DataValue::Len(len)) =
+                                                data_values.get_mut(*len_idx)
+                                            {
+                                                *len = s_len;
+                                            }
+                                        }
                                     }
                                     DataValue::Bytes(bytes) => {
                                         let mut bytes_str: String = bytes.encode_hex_upper();
                                         ui.text_edit_singleline(&mut bytes_str);
                                         *bytes = hex::decode(bytes_str).unwrap_or_default();
+
+                                        // Update the Len
+                                        if let DataFormat::VarBytes { len_idx } = fmt {
+                                            let bytes_len = bytes.len() as u64;
+                                            if let Some(DataValue::Len(len)) =
+                                                data_values.get_mut(*len_idx)
+                                            {
+                                                *len = bytes_len;
+                                            }
+                                        }
                                     }
                                 };
                             });
