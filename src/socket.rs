@@ -68,7 +68,7 @@ impl Server {
 
         let listen_addr = socket.local_addr().unwrap().as_socket().unwrap();
 
-        info!("Server: Started, listen: {}", &listen_addr);
+        info!("Server: Started, listen: `{}`", &listen_addr);
 
         self.stop_flag.store(false, Ordering::Relaxed);
         self.listen_addr = Some(listen_addr.to_string());
@@ -92,7 +92,7 @@ impl Server {
 
             match listener.accept() {
                 Ok((stream, addr)) => {
-                    info!("Server: Connection established, addr: {}", &addr);
+                    info!("Server: Connection established, addr: `{}`", &addr);
 
                     {
                         let fmt = fmt.clone();
@@ -105,7 +105,7 @@ impl Server {
 
                             match fmt.read_from(&mut stream, stop_flag.clone()) {
                                 Ok(msg) => {
-                                    info!("Server: Received from {}, msg: {:?}", addr, msg);
+                                    info!("Server: Received from `{}`, msg: {:?}", addr, msg);
                                 }
                                 Err(Error::Eof | Error::Stopped) => {
                                     break;
@@ -128,7 +128,7 @@ impl Server {
                         writer_handles.push(std::thread::spawn(move || {
                             while let Ok(msg) = rx.recv() {
                                 if let Ok(()) = fmt.write_to(&msg, &mut stream) {
-                                    info!("Server: Sent to {}, msg: {:?}", addr, msg);
+                                    info!("Server: Sent to `{}`, msg: {:?}", addr, msg);
                                 } else {
                                     break;
                                 }
@@ -234,7 +234,7 @@ impl Client {
         let bind_addr = socket.local_addr().map_err(Error::Io)?.as_socket().unwrap();
 
         info!(
-            "Client: Started, bind: {}, connect to: {}",
+            "Client: Started, bind: `{}`, connect to: `{}`",
             &bind_addr, &connect_addr
         );
 
@@ -251,7 +251,7 @@ impl Client {
 
             match fmt.read_from(&mut stream, stop_flag.clone()) {
                 Ok(msg) => {
-                    info!("Client: Received from {}, msg: {:?}", &connect_addr, &msg);
+                    info!("Client: Received from `{}`, msg: {:?}", &connect_addr, &msg);
                 }
                 Err(Error::Eof | Error::Stopped) => {
                     break;
@@ -269,7 +269,7 @@ impl Client {
         self.writer_handle = Some(std::thread::spawn(move || {
             while let Ok(msg) = rx.recv() {
                 if let Ok(()) = fmt.write_to(&msg, &mut stream) {
-                    info!("Client: Sent to {}, msg: {:?}", &connect_addr, &msg);
+                    info!("Client: Sent to `{}`, msg: {:?}", &connect_addr, &msg);
                 } else {
                     break;
                 }
