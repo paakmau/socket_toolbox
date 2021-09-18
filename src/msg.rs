@@ -56,7 +56,7 @@ enum LenError {
 }
 
 impl LenError {
-    fn get_global_error(&self, item_idx: usize) -> Error {
+    fn global_error(&self, item_idx: usize) -> Error {
         match self {
             Self::LenIdxOutOfBound { len_idx } => Error::LenIdxOutOfBound {
                 item_idx,
@@ -93,7 +93,7 @@ enum WriteError {
 }
 
 impl WriteError {
-    fn get_global_error(&self, item_idx: usize) -> Error {
+    fn global_error(&self, item_idx: usize) -> Error {
         match self {
             Self::LenTooLarge { max_len, len } => Error::LenTooLarge {
                 max_len: *max_len,
@@ -279,7 +279,7 @@ impl MessageFormat {
         let mut values = Vec::<ItemValue>::with_capacity(self.item_fmts.len());
         let mut slice = buf;
         for (idx, item_fmt) in self.item_fmts.iter().enumerate() {
-            let len = item_fmt.len(&values).map_err(|e| e.get_global_error(idx))?;
+            let len = item_fmt.len(&values).map_err(|e| e.global_error(idx))?;
             values.push(
                 item_fmt
                     .read_from_buf(len, &mut slice)
@@ -300,12 +300,12 @@ impl MessageFormat {
         for (idx, (item_fmt, value)) in self.item_fmts.iter().zip(msg.values.iter()).enumerate() {
             let value_len = item_fmt
                 .len(&msg.values)
-                .map_err(|e| e.get_global_error(idx))?;
+                .map_err(|e| e.global_error(idx))?;
             buf.resize(buf_len + value_len, 0);
             let mut slice = &mut buf[buf_len..buf_len + value_len];
             item_fmt
                 .write_to_buf(value_len, value, &mut slice)
-                .map_err(|e| e.get_global_error(idx))?;
+                .map_err(|e| e.global_error(idx))?;
             buf_len += value_len;
         }
 
@@ -315,7 +315,7 @@ impl MessageFormat {
     pub fn read_from(&self, stream: &mut TcpStream, stop_flag: Arc<AtomicBool>) -> Result<Message> {
         let mut values = Vec::<ItemValue>::with_capacity(self.item_fmts.len());
         for (idx, item_fmt) in self.item_fmts.iter().enumerate() {
-            let len = item_fmt.len(&values).map_err(|e| e.get_global_error(idx))?;
+            let len = item_fmt.len(&values).map_err(|e| e.global_error(idx))?;
             match item_fmt.read_from_tcp_stream(len, stream, stop_flag.clone()) {
                 Ok(v) => values.push(v),
                 Err(ReadError::Io(e)) => return Err(Error::Io(e)),
