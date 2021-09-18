@@ -2,70 +2,31 @@ use eframe::{
     egui::{self, TextEdit, Widget},
     epi,
 };
-use hex::ToHex;
 use log::warn;
 use strum::IntoEnumIterator;
 
 use crate::{
+    error::{Error, Result},
     msg::{ItemFormat, ItemValue, Message, MessageFormat},
     socket::{Client, Server},
 };
 
-use super::widget;
-
-#[derive(Debug, Clone, PartialEq, strum::ToString, strum::EnumIter)]
-enum ItemKind {
-    Len,
-    Uint,
-    Int,
-    FixedString,
-    VarString,
-    FixedBytes,
-    VarBytes,
-}
-
-impl ItemKind {
-    fn from_item_format(fmt: &ItemFormat) -> Self {
-        match fmt {
-            ItemFormat::Len { len: _ } => Self::Len,
-            ItemFormat::Uint { len: _ } => Self::Uint,
-            ItemFormat::Int { len: _ } => Self::Int,
-            ItemFormat::FixedString { len: _ } => Self::FixedString,
-            ItemFormat::VarString { len_idx: _ } => Self::VarString,
-            ItemFormat::FixedBytes { len: _ } => Self::FixedBytes,
-            ItemFormat::VarBytes { len_idx: _ } => Self::VarBytes,
-        }
-    }
-
-    fn get_default_item_format(&self) -> ItemFormat {
-        match self {
-            Self::Len => ItemFormat::Len { len: 0 },
-            Self::Uint => ItemFormat::Uint { len: 1 },
-            Self::Int => ItemFormat::Int { len: 1 },
-            Self::FixedString => ItemFormat::FixedString { len: 1 },
-            Self::VarString => ItemFormat::VarString { len_idx: 0 },
-            Self::FixedBytes => ItemFormat::FixedBytes { len: 1 },
-            Self::VarBytes => ItemFormat::VarBytes { len_idx: 0 },
-        }
-    }
-
-    fn get_default_item_value(&self) -> ItemValue {
-        match self {
-            Self::Len => ItemValue::Len(0),
-            Self::Uint => ItemValue::Uint(0),
-            Self::Int => ItemValue::Int(0),
-            Self::FixedString => ItemValue::String(Default::default()),
-            Self::VarString => ItemValue::String(Default::default()),
-            Self::FixedBytes => ItemValue::Bytes(Default::default()),
-            Self::VarBytes => ItemValue::Bytes(Default::default()),
-        }
-    }
-}
+use super::wrapper::ItemKindWrapper;
+use super::{
+    widget,
+    wrapper::{ItemFormatWrapper, ItemValueWrapper},
+};
 
 #[derive(Default)]
 pub struct App {
-    item_fmts: Vec<ItemFormat>,
-    item_values: Vec<ItemValue>,
+    item_kind_wrappers: Vec<ItemKindWrapper>,
+    item_fmt_wrappers: Vec<ItemFormatWrapper>,
+    item_value_wrappers: Vec<ItemValueWrapper>,
+
+    item_parse_error: Option<Error>,
+
+    item_fmts: Option<Vec<ItemFormat>>,
+    item_values: Option<Vec<ItemValue>>,
 
     decoded_msg: String,
 
@@ -97,6 +58,10 @@ impl epi::App for App {
 
     fn update(&mut self, ctx: &eframe::egui::CtxRef, _frame: &mut epi::Frame<'_>) {
         let Self {
+            item_kind_wrappers,
+            item_fmt_wrappers,
+            item_value_wrappers,
+            item_parse_error,
             item_fmts,
             item_values,
             decoded_msg,
@@ -127,167 +92,197 @@ impl epi::App for App {
                         ui.end_row();
 
                         let mut removed_idx = None;
-                        for (idx, fmt) in item_fmts.iter_mut().enumerate() {
+                        for (idx, (kind, fmt)) in item_kind_wrappers
+                            .iter_mut()
+                            .zip(item_fmt_wrappers.iter_mut())
+                            .enumerate()
+                        {
                             ui.vertical(|ui| {
                                 ui.set_enabled(can_modify_format);
 
-                                let mut kind = ItemKind::from_item_format(fmt);
-                                let value = &mut item_values[idx];
+                                // ComboBox to select item kind.
+                                let value = &mut item_value_wrappers[idx];
                                 egui::ComboBox::from_id_source(idx)
                                     .selected_text(kind.to_string())
                                     .show_ui(ui, |ui| {
-                                        for k in ItemKind::iter() {
-                                            ui.selectable_value(
-                                                &mut kind,
-                                                k.clone(),
-                                                k.to_string(),
-                                            );
-                                        }
-                                        if kind != ItemKind::from_item_format(fmt) {
-                                            *fmt = kind.get_default_item_format();
-                                            *value = kind.get_default_item_value();
+                                        for k in ItemKindWrapper::iter() {
+                                            ui.selectable_value(kind, k.clone(), k.to_string());
                                         }
                                     });
+                                // If kind changed, change format and value correspondingly.
+                                if *kind != ItemKindWrapper::from_item_format(fmt) {
+                                    *fmt = kind.default_item_format();
+                                    *value = kind.default_item_value();
+                                }
 
+                                // Input item format.
                                 match fmt {
-                                    ItemFormat::Len { len } => {
-                                        let mut len_str = len.to_string();
+                                    ItemFormatWrapper::Len { len }
+                                    | ItemFormatWrapper::Uint { len }
+                                    | ItemFormatWrapper::Int { len }
+                                    | ItemFormatWrapper::FixedString { len }
+                                    | ItemFormatWrapper::FixedBytes { len } => {
                                         ui.horizontal(|ui| {
                                             ui.label("Length:");
-                                            ui.text_edit_singleline(&mut len_str);
+                                            ui.text_edit_singleline(len);
                                         });
-                                        *len = len_str.parse::<usize>().unwrap_or(1);
-                                        *len = (*len).max(1);
                                     }
-                                    ItemFormat::Uint { len }
-                                    | ItemFormat::Int { len }
-                                    | ItemFormat::FixedString { len }
-                                    | ItemFormat::FixedBytes { len } => {
-                                        let mut len_str = len.to_string();
-                                        ui.horizontal(|ui| {
-                                            ui.label("Length:");
-                                            ui.text_edit_singleline(&mut len_str);
-                                        });
-                                        *len = len_str.parse::<usize>().unwrap_or(1);
-                                        *len = (*len).max(1);
-                                    }
-                                    ItemFormat::VarString { len_idx }
-                                    | ItemFormat::VarBytes { len_idx } => {
-                                        let mut len_idx_str = len_idx.to_string();
+                                    ItemFormatWrapper::VarString { len_idx }
+                                    | ItemFormatWrapper::VarBytes { len_idx } => {
                                         ui.horizontal(|ui| {
                                             ui.label("Length index:");
-                                            ui.text_edit_singleline(&mut len_idx_str);
+                                            ui.text_edit_singleline(len_idx);
                                         });
-                                        *len_idx = len_idx_str.parse::<usize>().unwrap_or(0);
                                     }
                                 }
                             });
 
+                            // Input item value.
                             ui.vertical(|ui| {
                                 if ui.button("Delete").clicked() {
                                     removed_idx = Some(idx);
                                 }
 
-                                let value = &mut item_values[idx];
+                                let value = &mut item_value_wrappers[idx];
                                 match value {
-                                    ItemValue::Len(v) => {
+                                    ItemValueWrapper::Len(v) => {
                                         ui.label(v.to_string());
                                     }
-                                    ItemValue::Uint(v) => {
-                                        let mut v_str = v.to_string();
-                                        ui.text_edit_singleline(&mut v_str);
-                                        *v = v_str.parse::<u64>().unwrap_or(0);
-                                    }
-                                    ItemValue::Int(v) => {
-                                        let mut v_str = v.to_string();
-                                        ui.text_edit_singleline(&mut v_str);
-                                        *v = v_str.parse::<i64>().unwrap_or(0);
-                                    }
-                                    ItemValue::String(s) => {
+                                    ItemValueWrapper::Uint(s)
+                                    | ItemValueWrapper::Int(s)
+                                    | ItemValueWrapper::Bytes(s)
+                                    | ItemValueWrapper::String(s) => {
                                         ui.text_edit_singleline(s);
+                                    }
+                                };
 
-                                        // Update the Len
-                                        if let ItemFormat::VarString { len_idx } = fmt {
+                                // Update the Len
+                                match (fmt, value) {
+                                    (
+                                        ItemFormatWrapper::VarString { len_idx },
+                                        ItemValueWrapper::String(s),
+                                    ) => {
+                                        if let Ok(len_idx) = len_idx.parse::<usize>() {
                                             let s_len = s.len() as u64;
-                                            if let Some(ItemValue::Len(len)) =
-                                                item_values.get_mut(*len_idx)
+                                            if let Some(ItemValueWrapper::Len(len)) =
+                                                item_value_wrappers.get_mut(len_idx)
                                             {
                                                 *len = s_len;
                                             }
                                         }
                                     }
-                                    ItemValue::Bytes(bytes) => {
-                                        let mut bytes_str: String = bytes.encode_hex_upper();
-                                        ui.text_edit_singleline(&mut bytes_str);
-                                        *bytes = hex::decode(bytes_str).unwrap_or_default();
-
-                                        // Update the Len
-                                        if let ItemFormat::VarBytes { len_idx } = fmt {
-                                            let bytes_len = bytes.len() as u64;
-                                            if let Some(ItemValue::Len(len)) =
-                                                item_values.get_mut(*len_idx)
+                                    (
+                                        ItemFormatWrapper::VarBytes { len_idx },
+                                        ItemValueWrapper::Bytes(s),
+                                    ) => {
+                                        if let Ok(len_idx) = len_idx.parse::<usize>() {
+                                            let s_len = s.len() as u64 >> 1;
+                                            if let Some(ItemValueWrapper::Len(len)) =
+                                                item_value_wrappers.get_mut(len_idx)
                                             {
-                                                *len = bytes_len;
+                                                *len = s_len;
                                             }
                                         }
                                     }
-                                };
+                                    _ => {}
+                                }
                             });
 
                             ui.end_row();
                         }
 
                         if let Some(idx) = removed_idx {
-                            item_fmts.remove(idx);
-                            item_values.remove(idx);
+                            item_fmt_wrappers.remove(idx);
+                            item_value_wrappers.remove(idx);
                         }
                     });
+
+                *item_parse_error = None;
+                *item_fmts = None;
+                *item_values = None;
+
+                // Parse item formats.
+                match item_fmt_wrappers
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, fmt)| fmt.parse().map_err(|e| e.global_error(idx)))
+                    .collect::<Result<Vec<ItemFormat>>>()
+                {
+                    Ok(fmts) => *item_fmts = Some(fmts),
+                    Err(e) => *item_parse_error = Some(e),
+                }
+
+                // Parse item values.
+                match item_value_wrappers
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, value)| value.parse().map_err(|e| e.global_error(idx)))
+                    .collect::<Result<Vec<ItemValue>>>()
+                {
+                    Ok(values) => *item_values = Some(values),
+                    Err(e) => *item_parse_error = Some(e),
+                }
 
                 if egui::Button::new("Add message item")
                     .enabled(can_modify_format)
                     .ui(ui)
                     .clicked()
                 {
-                    item_fmts.push(ItemFormat::Len { len: 1 });
-                    item_values.push(ItemValue::Len(0));
+                    item_kind_wrappers.push(ItemKindWrapper::Len);
+                    item_fmt_wrappers
+                        .push(item_kind_wrappers.last().unwrap().default_item_format());
+                    item_value_wrappers
+                        .push(item_kind_wrappers.last().unwrap().default_item_value());
                 }
 
-                // Encoder and decoder.
-                let msg_fmt = MessageFormat::new(item_fmts.clone());
+                // Show parse error if exists.
+                if let Some(e) = item_parse_error.as_ref() {
+                    ui.label(format!("Parse error: {}", e));
+                }
 
-                ui.horizontal(|ui| {
-                    let res = msg_fmt.encode(&Message::new(item_values.clone()));
-                    match res {
-                        Ok(bytes) => {
-                            ui.label("Encode:");
-                            ui.label(hex::encode_upper(bytes));
-                        }
-                        Err(e) => {
-                            ui.label("Encode error:");
-                            ui.label(e.to_string());
+                if let Some(item_fmts) = item_fmts.as_ref() {
+                    let msg_fmt = MessageFormat::new(item_fmts.clone());
+
+                    if let Some(item_values) = item_values.as_ref() {
+                        // Encode the input to bytes, show errors if fails.
+                        let res = msg_fmt.encode(&Message::new(item_values.clone()));
+                        match res {
+                            Ok(bytes) => {
+                                ui.label(format!("Encode: {}", hex::encode_upper(bytes)));
+                            }
+                            Err(e) => {
+                                ui.label(format!("Encode error: {}", e));
+                            }
                         }
                     }
-                });
 
-                ui.horizontal(|ui| {
-                    ui.label("Decode:");
-                    ui.text_edit_singleline(decoded_msg);
-                    if ui.button("Confirm").clicked() {
-                        match hex::decode(decoded_msg) {
-                            Ok(bytes) => match msg_fmt.decode(&bytes) {
-                                Ok(msg) => *item_values = msg.values().clone(),
+                    // Decode the bytes to input, log errors if fails.
+                    ui.horizontal(|ui| {
+                        ui.label("Decode:");
+                        ui.text_edit_singleline(decoded_msg);
+                        if ui.button("Confirm").clicked() {
+                            match hex::decode(decoded_msg) {
+                                Ok(bytes) => match msg_fmt.decode(&bytes) {
+                                    Ok(msg) => {
+                                        *item_value_wrappers = msg
+                                            .values()
+                                            .iter()
+                                            .map(ItemValueWrapper::from)
+                                            .collect()
+                                    }
+                                    Err(e) => warn!(
+                                        "App: The bytes can not be decoded to Message, details: {}",
+                                        e
+                                    ),
+                                },
                                 Err(e) => warn!(
-                                    "App: The bytes can not be decoded to Message, details: {}",
+                                    "App: The string can not be decoded to bytes, details: {}",
                                     e
                                 ),
-                            },
-                            Err(e) => warn!(
-                                "App: The string can not be decoded to bytes, details: {}",
-                                e
-                            ),
+                            }
                         }
-                    }
-                });
+                    });
+                }
             });
 
             // Group for server.
@@ -297,7 +292,9 @@ impl epi::App for App {
 
                     if ui.add(widget::toggle(server_run_flag)).clicked() {
                         if *server_run_flag {
-                            let mut new_server = Server::new(MessageFormat::new(item_fmts.clone()));
+                            let mut new_server = Server::new(MessageFormat::new(
+                                item_fmts.as_ref().unwrap().clone(),
+                            ));
 
                             let listen_addr = if server_listen_addr.is_empty() {
                                 None
@@ -351,7 +348,10 @@ impl epi::App for App {
                     server
                         .as_mut()
                         .unwrap()
-                        .send_msg(server_target_addr, Message::new(item_values.clone()))
+                        .send_msg(
+                            server_target_addr,
+                            Message::new(item_values.as_ref().unwrap().clone()),
+                        )
                         .err()
                         .iter()
                         .for_each(|e| {
@@ -369,7 +369,9 @@ impl epi::App for App {
                     ui.label("Client");
                     if ui.add(widget::toggle(client_run_flag)).clicked() {
                         if *client_run_flag {
-                            let mut new_client = Client::new(MessageFormat::new(item_fmts.clone()));
+                            let mut new_client = Client::new(MessageFormat::new(
+                                item_fmts.as_ref().unwrap().clone(),
+                            ));
 
                             let bind_addr = if client_bind_addr.is_empty() {
                                 None
@@ -422,7 +424,7 @@ impl epi::App for App {
                     client
                         .as_mut()
                         .unwrap()
-                        .send_msg(Message::new(item_values.clone()))
+                        .send_msg(Message::new(item_values.as_ref().unwrap().clone()))
                         .err()
                         .iter()
                         .for_each(|e| {

@@ -1,4 +1,6 @@
-use std::result;
+use std::{num::ParseIntError, result};
+
+use hex::FromHexError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -10,6 +12,20 @@ pub enum Error {
 
     #[error("invalid IP address syntax, `{invalid_addr}`")]
     AddrParse { invalid_addr: String },
+
+    #[error("`{s}` couldn't be parsed to a integer, index of item: `{item_idx}`, details: {e}")]
+    IntegerParse {
+        s: String,
+        item_idx: usize,
+        e: ParseIntError,
+    },
+
+    #[error("`{s}` couldn't be parsed to bytes, index of item: `{item_idx}`, details: {e}")]
+    BytesParse {
+        s: String,
+        item_idx: usize,
+        e: FromHexError,
+    },
 
     #[error("there is no such client connected `{addr}`")]
     NoSuchClient { addr: String },
