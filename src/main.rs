@@ -296,7 +296,7 @@ impl epi::App for App {
                 ui.horizontal(|ui| {
                     ui.label("Server");
 
-                    if ui.add(ui::toggle(server_run_flag)).clicked() {
+                    if ui.add(ui::widget::toggle(server_run_flag)).clicked() {
                         if *server_run_flag {
                             let mut new_server = Server::new(MessageFormat::new(item_fmts.clone()));
 
@@ -368,7 +368,7 @@ impl epi::App for App {
             ui.group(|ui| {
                 ui.horizontal(|ui| {
                     ui.label("Client");
-                    if ui.add(ui::toggle(client_run_flag)).clicked() {
+                    if ui.add(ui::widget::toggle(client_run_flag)).clicked() {
                         if *client_run_flag {
                             let mut new_client = Client::new(MessageFormat::new(item_fmts.clone()));
 
