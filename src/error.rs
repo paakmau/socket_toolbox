@@ -20,14 +20,24 @@ pub enum Error {
     #[error("the index of length is out of bound, index of item: `{item_idx}`, index of length: `{len_idx}`")]
     LenIdxOutOfBound { item_idx: usize, len_idx: usize },
 
-    #[error("the item specified by index `{len_idx}` is not a length, index of item: `{item_idx}`")]
+    #[error(
+        "the item specified by index `{len_idx}` is not a length, index of item: `{item_idx}`"
+    )]
     NotALen { item_idx: usize, len_idx: usize },
 
     #[error("the length for this kind of item is too large, max len: `{max_len}`, index of item: `{item_idx}`, actual len: `{len}`")]
-    LenTooLarge { max_len: usize, item_idx: usize, len: usize},
+    LenTooLarge {
+        max_len: usize,
+        item_idx: usize,
+        len: usize,
+    },
 
     #[error("the length of value is out of bound, len specified by format: `{specified_len}`, index of item: `{item_idx}`, len of item: `{item_len}`")]
-    ValueLenOutOfBound { specified_len: usize, item_idx: usize, item_len: usize },
+    ValueLenOutOfBound {
+        specified_len: usize,
+        item_idx: usize,
+        item_len: usize,
+    },
 
     #[error("no more bytes can be read")]
     Eof,
