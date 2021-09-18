@@ -235,6 +235,8 @@ impl epi::App for App {
                         .push(item_kind_wrappers.last().unwrap().default_item_value());
                 }
 
+                ui.separator();
+
                 // Show parse error if exists.
                 if let Some(e) = item_parse_error.as_ref() {
                     ui.label(format!("Parse error: {}", e));
