@@ -261,15 +261,15 @@ impl MessageFormat {
 
     pub fn encode(&self, msg: &Message) -> Result<Vec<u8>> {
         let mut buf = Vec::<u8>::default();
-        let mut len = 0;
+        let mut buf_len = 0;
         for (idx, (data_fmt, value)) in self.data_fmts.iter().zip(msg.values.iter()).enumerate() {
-            let kind_len = data_fmt
+            let value_len = data_fmt
                 .len(&msg.values)
                 .map_err(|e| e.get_global_error(idx))?;
-            buf.resize(len + kind_len, 0);
-            let mut slice = &mut buf[len..len + kind_len];
+            buf.resize(buf_len + value_len, 0);
+            let mut slice = &mut buf[buf_len..buf_len + value_len];
             data_fmt.write_to_buf(value, &mut slice);
-            len += kind_len;
+            buf_len += value_len;
         }
 
         Ok(buf)
