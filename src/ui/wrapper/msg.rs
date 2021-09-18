@@ -93,12 +93,14 @@ impl ParseError {
 
 pub type ParseResult<T> = Result<T, ParseError>;
 
-fn parse_integer<T>(s: &String) -> ParseResult<T>
+fn parse_integer<T>(s: &str) -> ParseResult<T>
 where
     T: FromStr<Err = ParseIntError>,
 {
-    s.parse::<T>()
-        .map_err(|e| ParseError::Integer { s: s.clone(), e })
+    s.parse::<T>().map_err(|e| ParseError::Integer {
+        s: s.to_string(),
+        e,
+    })
 }
 
 impl ItemValueWrapper {
