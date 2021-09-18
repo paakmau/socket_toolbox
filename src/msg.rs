@@ -249,28 +249,6 @@ impl ItemFormat {
         }
     }
 
-    fn write_to_tcp_stream(&self, value: &ItemValue, stream: &mut TcpStream) -> Result<()> {
-        match (self, value) {
-            (Self::Len { len }, ItemValue::Len(v)) | (Self::Uint { len }, ItemValue::Uint(v)) => {
-                stream.write_all(&v.to_be_bytes()[size_of_val(v) - *len..])
-            }
-            (Self::Int { len }, ItemValue::Int(v)) => {
-                stream.write_all(&v.to_be_bytes()[size_of_val(v) - *len..])
-            }
-            (
-                Self::FixedString { len: _ } | Self::VarString { len_idx: _ },
-                ItemValue::String(buf),
-            ) => stream.write_all(buf.as_bytes()),
-            (
-                Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ },
-                ItemValue::Bytes(buf),
-            ) => stream.write_all(buf.as_slice()),
-            _ => panic!(),
-        }
-        .map_err(Error::Io)?;
-        Ok(())
-    }
-
     fn len_by_idx(len_idx: usize, values: &[ItemValue]) -> LenResult {
         if let Some(value) = values.get(len_idx) {
             match value {
@@ -350,9 +328,8 @@ impl MessageFormat {
     }
 
     pub fn write_to(&self, msg: &Message, stream: &mut TcpStream) -> Result<()> {
-        for (item_fmt, value) in self.item_fmts.iter().zip(msg.values.iter()) {
-            item_fmt.write_to_tcp_stream(value, stream)?;
-        }
+        let bytes = self.encode(msg)?;
+        stream.write_all(&bytes)?;
         Ok(())
     }
 }

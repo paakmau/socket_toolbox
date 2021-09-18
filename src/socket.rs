@@ -268,10 +268,12 @@ impl Client {
         let mut stream: TcpStream = socket.try_clone().map_err(Error::Io)?.into();
         self.writer_handle = Some(std::thread::spawn(move || {
             while let Ok(msg) = rx.recv() {
-                if let Ok(()) = fmt.write_to(&msg, &mut stream) {
-                    info!("Client: Sent to `{}`, msg: {:?}", &connect_addr, &msg);
-                } else {
-                    break;
+                match fmt.write_to(&msg, &mut stream) {
+                    Ok(()) => {
+                        info!("Client: Sent to `{}`, msg: {:?}", &connect_addr, &msg);
+                    }
+                    Err(Error::Io(_)) => break,
+                    Err(e) => warn!("Client: Failed to write message, error: {}", e),
                 }
             }
         }));
@@ -300,7 +302,7 @@ impl Client {
 
     pub fn send_msg(&mut self, msg: Message) -> Result<()> {
         if let Some(tx) = self.tx.lock().unwrap().deref() {
-            tx.send(msg).unwrap();
+            tx.send(msg).ok();
             Ok(())
         } else {
             Err(Error::NotConnected)
