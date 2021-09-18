@@ -16,7 +16,7 @@ use bytes::{Buf, BufMut};
 use crate::error::{Error, Result};
 
 #[derive(Debug, Clone)]
-pub enum DataValue {
+pub enum ItemValue {
     Len(u64),
     Uint(u64),
     Int(i64),
@@ -26,21 +26,21 @@ pub enum DataValue {
 
 #[derive(Debug, Clone)]
 pub struct Message {
-    values: Vec<DataValue>,
+    values: Vec<ItemValue>,
 }
 
 impl Message {
-    pub fn new(values: Vec<DataValue>) -> Self {
+    pub fn new(values: Vec<ItemValue>) -> Self {
         Self { values }
     }
 
-    pub fn values(&self) -> &Vec<DataValue> {
+    pub fn values(&self) -> &Vec<ItemValue> {
         &self.values
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum DataFormat {
+pub enum ItemFormat {
     Len { len: usize },
     Uint { len: usize },
     Int { len: usize },
@@ -56,14 +56,14 @@ enum LenError {
 }
 
 impl LenError {
-    fn get_global_error(&self, data_idx: usize) -> Error {
+    fn get_global_error(&self, item_idx: usize) -> Error {
         match self {
             Self::LenIdxOutOfBound { len_idx } => Error::LenIdxOutOfBound {
-                data_idx,
+                item_idx,
                 len_idx: *len_idx,
             },
             Self::NotALen { len_idx } => Error::NotALen {
-                data_idx,
+                item_idx,
                 len_idx: *len_idx,
             },
         }
@@ -79,7 +79,7 @@ enum ReadError {
     FromUtf8(std::string::FromUtf8Error),
 }
 
-type ReadResult = result::Result<DataValue, ReadError>;
+type ReadResult = result::Result<ItemValue, ReadError>;
 
 enum WriteError {
     LenTooLarge {
@@ -88,25 +88,25 @@ enum WriteError {
     },
     ValueLenOutOfBound {
         specified_len: usize,
-        data_len: usize,
+        item_len: usize,
     },
 }
 
 impl WriteError {
-    fn get_global_error(&self, data_idx: usize) -> Error {
+    fn get_global_error(&self, item_idx: usize) -> Error {
         match self {
             Self::LenTooLarge { max_len, len } => Error::LenTooLarge {
                 max_len: *max_len,
-                data_idx,
+                item_idx,
                 len: *len,
             },
             Self::ValueLenOutOfBound {
                 specified_len,
-                data_len,
+                item_len,
             } => Error::ValueLenOutOfBound {
                 specified_len: *specified_len,
-                data_idx,
-                data_len: *data_len,
+                item_idx,
+                item_len: *item_len,
             },
         }
     }
@@ -114,8 +114,8 @@ impl WriteError {
 
 type WriteResult = result::Result<(), WriteError>;
 
-impl DataFormat {
-    fn len(&self, values: &[DataValue]) -> LenResult {
+impl ItemFormat {
+    fn len(&self, values: &[ItemValue]) -> LenResult {
         match self {
             Self::Len { len } => Ok(*len),
             Self::Uint { len } => Ok(*len),
@@ -133,35 +133,35 @@ impl DataFormat {
         }
 
         match self {
-            Self::Len { len: _ } => Ok(DataValue::Len(buf.get_uint(len))),
-            Self::Uint { len: _ } => Ok(DataValue::Uint(buf.get_uint(len))),
-            Self::Int { len: _ } => Ok(DataValue::Int(buf.get_int(len))),
+            Self::Len { len: _ } => Ok(ItemValue::Len(buf.get_uint(len))),
+            Self::Uint { len: _ } => Ok(ItemValue::Uint(buf.get_uint(len))),
+            Self::Int { len: _ } => Ok(ItemValue::Int(buf.get_int(len))),
             Self::FixedString { len: _ } | Self::VarString { len_idx: _ } => {
                 let mut str_buf = vec![0u8; len];
                 buf.read_exact(&mut str_buf).unwrap();
                 match String::from_utf8(str_buf) {
-                    Ok(s) => Ok(DataValue::String(s)),
+                    Ok(s) => Ok(ItemValue::String(s)),
                     Err(e) => Err(ReadError::FromUtf8(e)),
                 }
             }
             Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ } => {
                 let mut bytes_buf = vec![0u8; len];
                 buf.read_exact(&mut bytes_buf).unwrap();
-                Ok(DataValue::Bytes(bytes_buf))
+                Ok(ItemValue::Bytes(bytes_buf))
             }
         }
     }
 
-    fn write_to_buf(&self, len: usize, value: &DataValue, buf: &mut &mut [u8]) -> WriteResult {
+    fn write_to_buf(&self, len: usize, value: &ItemValue, buf: &mut &mut [u8]) -> WriteResult {
         // Validate the length
         let mut max_len = usize::MAX;
         let mut min_len = 0usize;
         match value {
-            DataValue::Len(v) | DataValue::Uint(v) => max_len = size_of_val(v),
-            DataValue::Int(v) => max_len = size_of_val(v),
+            ItemValue::Len(v) | ItemValue::Uint(v) => max_len = size_of_val(v),
+            ItemValue::Int(v) => max_len = size_of_val(v),
 
-            DataValue::String(s) => min_len = s.len(),
-            DataValue::Bytes(bytes) => min_len = bytes.len(),
+            ItemValue::String(s) => min_len = s.len(),
+            ItemValue::Bytes(bytes) => min_len = bytes.len(),
         }
 
         if len > max_len {
@@ -170,22 +170,22 @@ impl DataFormat {
         if len < min_len {
             return Err(WriteError::ValueLenOutOfBound {
                 specified_len: len,
-                data_len: min_len,
+                item_len: min_len,
             });
         }
 
         // Write value to buf.
         match (self, value) {
-            (Self::Len { len: _ }, DataValue::Len(v))
-            | (Self::Uint { len: _ }, DataValue::Uint(v)) => buf.put_uint(*v, len),
-            (Self::Int { len: _ }, DataValue::Int(v)) => buf.put_int(*v, len),
+            (Self::Len { len: _ }, ItemValue::Len(v))
+            | (Self::Uint { len: _ }, ItemValue::Uint(v)) => buf.put_uint(*v, len),
+            (Self::Int { len: _ }, ItemValue::Int(v)) => buf.put_int(*v, len),
             (
                 Self::FixedString { len: _ } | Self::VarString { len_idx: _ },
-                DataValue::String(char_buf),
+                ItemValue::String(char_buf),
             ) => buf.put(char_buf.as_bytes()),
             (
                 Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ },
-                DataValue::Bytes(bytes_buf),
+                ItemValue::Bytes(bytes_buf),
             ) => buf.put(bytes_buf.as_slice()),
             _ => panic!(),
         }
@@ -228,42 +228,42 @@ impl DataFormat {
         }
 
         match self {
-            Self::Len { len: _ } => Ok(DataValue::Len(u64::from_be_bytes(integer_buf))),
-            Self::Uint { len: _ } => Ok(DataValue::Uint(u64::from_be_bytes(integer_buf))),
+            Self::Len { len: _ } => Ok(ItemValue::Len(u64::from_be_bytes(integer_buf))),
+            Self::Uint { len: _ } => Ok(ItemValue::Uint(u64::from_be_bytes(integer_buf))),
             Self::Int { len: _ } => {
                 let mut v = i64::from_be_bytes(integer_buf);
 
                 let offset = (size_of::<u64>() - len) * u8::BITS as usize;
                 v = v << offset >> offset;
-                Ok(DataValue::Int(v))
+                Ok(ItemValue::Int(v))
             }
             Self::FixedString { len: _ } | Self::VarString { len_idx: _ } => {
                 match String::from_utf8(bytes_buf) {
-                    Ok(s) => Ok(DataValue::String(s)),
+                    Ok(s) => Ok(ItemValue::String(s)),
                     Err(e) => Err(ReadError::FromUtf8(e)),
                 }
             }
             Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ } => {
-                Ok(DataValue::Bytes(bytes_buf))
+                Ok(ItemValue::Bytes(bytes_buf))
             }
         }
     }
 
-    fn write_to_tcp_stream(&self, value: &DataValue, stream: &mut TcpStream) -> Result<()> {
+    fn write_to_tcp_stream(&self, value: &ItemValue, stream: &mut TcpStream) -> Result<()> {
         match (self, value) {
-            (Self::Len { len }, DataValue::Len(v)) | (Self::Uint { len }, DataValue::Uint(v)) => {
+            (Self::Len { len }, ItemValue::Len(v)) | (Self::Uint { len }, ItemValue::Uint(v)) => {
                 stream.write_all(&v.to_be_bytes()[size_of_val(v) - *len..])
             }
-            (Self::Int { len }, DataValue::Int(v)) => {
+            (Self::Int { len }, ItemValue::Int(v)) => {
                 stream.write_all(&v.to_be_bytes()[size_of_val(v) - *len..])
             }
             (
                 Self::FixedString { len: _ } | Self::VarString { len_idx: _ },
-                DataValue::String(buf),
+                ItemValue::String(buf),
             ) => stream.write_all(buf.as_bytes()),
             (
                 Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ },
-                DataValue::Bytes(buf),
+                ItemValue::Bytes(buf),
             ) => stream.write_all(buf.as_slice()),
             _ => panic!(),
         }
@@ -271,10 +271,10 @@ impl DataFormat {
         Ok(())
     }
 
-    fn len_by_idx(len_idx: usize, values: &[DataValue]) -> LenResult {
+    fn len_by_idx(len_idx: usize, values: &[ItemValue]) -> LenResult {
         if let Some(value) = values.get(len_idx) {
             match value {
-                DataValue::Len(v) => Ok(*v as usize),
+                ItemValue::Len(v) => Ok(*v as usize),
                 _ => Err(LenError::NotALen { len_idx }),
             }
         } else {
@@ -285,29 +285,29 @@ impl DataFormat {
 
 #[derive(Clone)]
 pub struct MessageFormat {
-    data_fmts: Vec<DataFormat>,
+    item_fmts: Vec<ItemFormat>,
 }
 
 impl MessageFormat {
-    pub fn new(data_fmts: Vec<DataFormat>) -> Self {
-        MessageFormat { data_fmts }
+    pub fn new(item_fmts: Vec<ItemFormat>) -> Self {
+        MessageFormat { item_fmts }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.data_fmts.is_empty()
+        self.item_fmts.is_empty()
     }
 
     pub fn decode(&self, buf: &[u8]) -> Result<Message> {
-        let mut values = Vec::<DataValue>::with_capacity(self.data_fmts.len());
+        let mut values = Vec::<ItemValue>::with_capacity(self.item_fmts.len());
         let mut slice = buf;
-        for (idx, data_fmt) in self.data_fmts.iter().enumerate() {
-            let len = data_fmt.len(&values).map_err(|e| e.get_global_error(idx))?;
+        for (idx, item_fmt) in self.item_fmts.iter().enumerate() {
+            let len = item_fmt.len(&values).map_err(|e| e.get_global_error(idx))?;
             values.push(
-                data_fmt
+                item_fmt
                     .read_from_buf(len, &mut slice)
                     .map_err(|e| match e {
                         ReadError::Eof => Error::Eof,
-                        ReadError::FromUtf8(e) => Error::FromUtf8 { data_idx: idx, e },
+                        ReadError::FromUtf8(e) => Error::FromUtf8 { item_idx: idx, e },
                         _ => panic!(),
                     })?,
             );
@@ -319,13 +319,13 @@ impl MessageFormat {
     pub fn encode(&self, msg: &Message) -> Result<Vec<u8>> {
         let mut buf = Vec::<u8>::default();
         let mut buf_len = 0;
-        for (idx, (data_fmt, value)) in self.data_fmts.iter().zip(msg.values.iter()).enumerate() {
-            let value_len = data_fmt
+        for (idx, (item_fmt, value)) in self.item_fmts.iter().zip(msg.values.iter()).enumerate() {
+            let value_len = item_fmt
                 .len(&msg.values)
                 .map_err(|e| e.get_global_error(idx))?;
             buf.resize(buf_len + value_len, 0);
             let mut slice = &mut buf[buf_len..buf_len + value_len];
-            data_fmt
+            item_fmt
                 .write_to_buf(value_len, value, &mut slice)
                 .map_err(|e| e.get_global_error(idx))?;
             buf_len += value_len;
@@ -335,14 +335,14 @@ impl MessageFormat {
     }
 
     pub fn read_from(&self, stream: &mut TcpStream, stop_flag: Arc<AtomicBool>) -> Result<Message> {
-        let mut values = Vec::<DataValue>::with_capacity(self.data_fmts.len());
-        for (idx, data_fmt) in self.data_fmts.iter().enumerate() {
-            let len = data_fmt.len(&values).map_err(|e| e.get_global_error(idx))?;
-            match data_fmt.read_from_tcp_stream(len, stream, stop_flag.clone()) {
+        let mut values = Vec::<ItemValue>::with_capacity(self.item_fmts.len());
+        for (idx, item_fmt) in self.item_fmts.iter().enumerate() {
+            let len = item_fmt.len(&values).map_err(|e| e.get_global_error(idx))?;
+            match item_fmt.read_from_tcp_stream(len, stream, stop_flag.clone()) {
                 Ok(v) => values.push(v),
                 Err(ReadError::Io(e)) => return Err(Error::Io(e)),
                 Err(ReadError::Eof) => return Err(Error::Eof),
-                Err(ReadError::FromUtf8(e)) => return Err(Error::FromUtf8 { data_idx: idx, e }),
+                Err(ReadError::FromUtf8(e)) => return Err(Error::FromUtf8 { item_idx: idx, e }),
                 Err(ReadError::Stopped) => return Err(Error::Stopped),
             }
         }
@@ -350,8 +350,8 @@ impl MessageFormat {
     }
 
     pub fn write_to(&self, msg: &Message, stream: &mut TcpStream) -> Result<()> {
-        for (data_fmt, value) in self.data_fmts.iter().zip(msg.values.iter()) {
-            data_fmt.write_to_tcp_stream(value, stream)?;
+        for (item_fmt, value) in self.item_fmts.iter().zip(msg.values.iter()) {
+            item_fmt.write_to_tcp_stream(value, stream)?;
         }
         Ok(())
     }

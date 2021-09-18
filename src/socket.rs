@@ -315,7 +315,7 @@ mod tests {
     use simplelog::SimpleLogger;
 
     use crate::{
-        msg::{DataFormat, DataValue, Message, MessageFormat},
+        msg::{ItemFormat, ItemValue, Message, MessageFormat},
         socket::Client,
     };
 
@@ -326,15 +326,15 @@ mod tests {
         SimpleLogger::init(log::LevelFilter::Debug, Default::default()).unwrap();
 
         let fmt = MessageFormat::new(vec![
-            DataFormat::Uint { len: 2 },
-            DataFormat::Int { len: 1 },
+            ItemFormat::Uint { len: 2 },
+            ItemFormat::Int { len: 1 },
         ]);
 
-        let msg_client_1 = Message::new(vec![DataValue::Uint(255), DataValue::Int(7)]);
-        let msg_client_2 = Message::new(vec![DataValue::Uint(0), DataValue::Int(-8)]);
+        let msg_client_1 = Message::new(vec![ItemValue::Uint(255), ItemValue::Int(7)]);
+        let msg_client_2 = Message::new(vec![ItemValue::Uint(0), ItemValue::Int(-8)]);
 
-        let msg_server_1 = Message::new(vec![DataValue::Uint(255), DataValue::Int(7)]);
-        let msg_server_2 = Message::new(vec![DataValue::Uint(0), DataValue::Int(-8)]);
+        let msg_server_1 = Message::new(vec![ItemValue::Uint(255), ItemValue::Int(7)]);
+        let msg_server_2 = Message::new(vec![ItemValue::Uint(0), ItemValue::Int(-8)]);
 
         let mut s = Server::new(fmt.clone());
         let mut c = Client::new(fmt);

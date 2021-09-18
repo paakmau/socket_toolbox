@@ -4,7 +4,7 @@ use eframe::{
 };
 use hex::ToHex;
 use log::warn;
-use msg::{DataFormat, DataValue, Message, MessageFormat};
+use msg::{ItemFormat, ItemValue, Message, MessageFormat};
 use simplelog::SimpleLogger;
 use socket::{Client, Server};
 use strum::IntoEnumIterator;
@@ -15,7 +15,7 @@ mod socket;
 mod ui;
 
 #[derive(Debug, Clone, PartialEq, strum::ToString, strum::EnumIter)]
-enum DataKind {
+enum ItemKind {
     Len,
     Uint,
     Int,
@@ -25,48 +25,48 @@ enum DataKind {
     VarBytes,
 }
 
-impl DataKind {
-    fn from_data_format(fmt: &DataFormat) -> Self {
+impl ItemKind {
+    fn from_item_format(fmt: &ItemFormat) -> Self {
         match fmt {
-            DataFormat::Len { len: _ } => Self::Len,
-            DataFormat::Uint { len: _ } => Self::Uint,
-            DataFormat::Int { len: _ } => Self::Int,
-            DataFormat::FixedString { len: _ } => Self::FixedString,
-            DataFormat::VarString { len_idx: _ } => Self::VarString,
-            DataFormat::FixedBytes { len: _ } => Self::FixedBytes,
-            DataFormat::VarBytes { len_idx: _ } => Self::VarBytes,
+            ItemFormat::Len { len: _ } => Self::Len,
+            ItemFormat::Uint { len: _ } => Self::Uint,
+            ItemFormat::Int { len: _ } => Self::Int,
+            ItemFormat::FixedString { len: _ } => Self::FixedString,
+            ItemFormat::VarString { len_idx: _ } => Self::VarString,
+            ItemFormat::FixedBytes { len: _ } => Self::FixedBytes,
+            ItemFormat::VarBytes { len_idx: _ } => Self::VarBytes,
         }
     }
 
-    fn get_default_data_format(&self) -> DataFormat {
+    fn get_default_item_format(&self) -> ItemFormat {
         match self {
-            Self::Len => DataFormat::Len { len: 0 },
-            Self::Uint => DataFormat::Uint { len: 1 },
-            Self::Int => DataFormat::Int { len: 1 },
-            Self::FixedString => DataFormat::FixedString { len: 1 },
-            Self::VarString => DataFormat::VarString { len_idx: 0 },
-            Self::FixedBytes => DataFormat::FixedBytes { len: 1 },
-            Self::VarBytes => DataFormat::VarBytes { len_idx: 0 },
+            Self::Len => ItemFormat::Len { len: 0 },
+            Self::Uint => ItemFormat::Uint { len: 1 },
+            Self::Int => ItemFormat::Int { len: 1 },
+            Self::FixedString => ItemFormat::FixedString { len: 1 },
+            Self::VarString => ItemFormat::VarString { len_idx: 0 },
+            Self::FixedBytes => ItemFormat::FixedBytes { len: 1 },
+            Self::VarBytes => ItemFormat::VarBytes { len_idx: 0 },
         }
     }
 
-    fn get_default_data_value(&self) -> DataValue {
+    fn get_default_item_value(&self) -> ItemValue {
         match self {
-            Self::Len => DataValue::Len(0),
-            Self::Uint => DataValue::Uint(0),
-            Self::Int => DataValue::Int(0),
-            Self::FixedString => DataValue::String(Default::default()),
-            Self::VarString => DataValue::String(Default::default()),
-            Self::FixedBytes => DataValue::Bytes(Default::default()),
-            Self::VarBytes => DataValue::Bytes(Default::default()),
+            Self::Len => ItemValue::Len(0),
+            Self::Uint => ItemValue::Uint(0),
+            Self::Int => ItemValue::Int(0),
+            Self::FixedString => ItemValue::String(Default::default()),
+            Self::VarString => ItemValue::String(Default::default()),
+            Self::FixedBytes => ItemValue::Bytes(Default::default()),
+            Self::VarBytes => ItemValue::Bytes(Default::default()),
         }
     }
 }
 
 #[derive(Default)]
 struct App {
-    data_fmts: Vec<DataFormat>,
-    data_values: Vec<DataValue>,
+    item_fmts: Vec<ItemFormat>,
+    item_values: Vec<ItemValue>,
 
     decoded_msg: String,
 
@@ -98,8 +98,8 @@ impl epi::App for App {
 
     fn update(&mut self, ctx: &eframe::egui::CtxRef, _frame: &mut epi::Frame<'_>) {
         let Self {
-            data_fmts,
-            data_values,
+            item_fmts,
+            item_values,
             decoded_msg,
             client_bind_addr,
             client_connect_addr,
@@ -128,30 +128,30 @@ impl epi::App for App {
                         ui.end_row();
 
                         let mut removed_idx = None;
-                        for (idx, fmt) in data_fmts.iter_mut().enumerate() {
+                        for (idx, fmt) in item_fmts.iter_mut().enumerate() {
                             ui.vertical(|ui| {
                                 ui.set_enabled(can_modify_format);
 
-                                let mut kind = DataKind::from_data_format(fmt);
-                                let value = &mut data_values[idx];
+                                let mut kind = ItemKind::from_item_format(fmt);
+                                let value = &mut item_values[idx];
                                 egui::ComboBox::from_id_source(idx)
                                     .selected_text(kind.to_string())
                                     .show_ui(ui, |ui| {
-                                        for k in DataKind::iter() {
+                                        for k in ItemKind::iter() {
                                             ui.selectable_value(
                                                 &mut kind,
                                                 k.clone(),
                                                 k.to_string(),
                                             );
                                         }
-                                        if kind != DataKind::from_data_format(fmt) {
-                                            *fmt = kind.get_default_data_format();
-                                            *value = kind.get_default_data_value();
+                                        if kind != ItemKind::from_item_format(fmt) {
+                                            *fmt = kind.get_default_item_format();
+                                            *value = kind.get_default_item_value();
                                         }
                                     });
 
                                 match fmt {
-                                    DataFormat::Len { len } => {
+                                    ItemFormat::Len { len } => {
                                         let mut len_str = len.to_string();
                                         ui.horizontal(|ui| {
                                             ui.label("Length:");
@@ -160,10 +160,10 @@ impl epi::App for App {
                                         *len = len_str.parse::<usize>().unwrap_or(1);
                                         *len = (*len).max(1);
                                     }
-                                    DataFormat::Uint { len }
-                                    | DataFormat::Int { len }
-                                    | DataFormat::FixedString { len }
-                                    | DataFormat::FixedBytes { len } => {
+                                    ItemFormat::Uint { len }
+                                    | ItemFormat::Int { len }
+                                    | ItemFormat::FixedString { len }
+                                    | ItemFormat::FixedBytes { len } => {
                                         let mut len_str = len.to_string();
                                         ui.horizontal(|ui| {
                                             ui.label("Length:");
@@ -172,8 +172,8 @@ impl epi::App for App {
                                         *len = len_str.parse::<usize>().unwrap_or(1);
                                         *len = (*len).max(1);
                                     }
-                                    DataFormat::VarString { len_idx }
-                                    | DataFormat::VarBytes { len_idx } => {
+                                    ItemFormat::VarString { len_idx }
+                                    | ItemFormat::VarBytes { len_idx } => {
                                         let mut len_idx_str = len_idx.to_string();
                                         ui.horizontal(|ui| {
                                             ui.label("Length index:");
@@ -189,44 +189,44 @@ impl epi::App for App {
                                     removed_idx = Some(idx);
                                 }
 
-                                let value = &mut data_values[idx];
+                                let value = &mut item_values[idx];
                                 match value {
-                                    DataValue::Len(v) => {
+                                    ItemValue::Len(v) => {
                                         ui.label(v.to_string());
                                     }
-                                    DataValue::Uint(v) => {
+                                    ItemValue::Uint(v) => {
                                         let mut v_str = v.to_string();
                                         ui.text_edit_singleline(&mut v_str);
                                         *v = v_str.parse::<u64>().unwrap_or(0);
                                     }
-                                    DataValue::Int(v) => {
+                                    ItemValue::Int(v) => {
                                         let mut v_str = v.to_string();
                                         ui.text_edit_singleline(&mut v_str);
                                         *v = v_str.parse::<i64>().unwrap_or(0);
                                     }
-                                    DataValue::String(s) => {
+                                    ItemValue::String(s) => {
                                         ui.text_edit_singleline(s);
 
                                         // Update the Len
-                                        if let DataFormat::VarString { len_idx } = fmt {
+                                        if let ItemFormat::VarString { len_idx } = fmt {
                                             let s_len = s.len() as u64;
-                                            if let Some(DataValue::Len(len)) =
-                                                data_values.get_mut(*len_idx)
+                                            if let Some(ItemValue::Len(len)) =
+                                                item_values.get_mut(*len_idx)
                                             {
                                                 *len = s_len;
                                             }
                                         }
                                     }
-                                    DataValue::Bytes(bytes) => {
+                                    ItemValue::Bytes(bytes) => {
                                         let mut bytes_str: String = bytes.encode_hex_upper();
                                         ui.text_edit_singleline(&mut bytes_str);
                                         *bytes = hex::decode(bytes_str).unwrap_or_default();
 
                                         // Update the Len
-                                        if let DataFormat::VarBytes { len_idx } = fmt {
+                                        if let ItemFormat::VarBytes { len_idx } = fmt {
                                             let bytes_len = bytes.len() as u64;
-                                            if let Some(DataValue::Len(len)) =
-                                                data_values.get_mut(*len_idx)
+                                            if let Some(ItemValue::Len(len)) =
+                                                item_values.get_mut(*len_idx)
                                             {
                                                 *len = bytes_len;
                                             }
@@ -239,8 +239,8 @@ impl epi::App for App {
                         }
 
                         if let Some(idx) = removed_idx {
-                            data_fmts.remove(idx);
-                            data_values.remove(idx);
+                            item_fmts.remove(idx);
+                            item_values.remove(idx);
                         }
                     });
 
@@ -249,18 +249,18 @@ impl epi::App for App {
                     .ui(ui)
                     .clicked()
                 {
-                    data_fmts.push(DataFormat::Len { len: 1 });
-                    data_values.push(DataValue::Len(0));
+                    item_fmts.push(ItemFormat::Len { len: 1 });
+                    item_values.push(ItemValue::Len(0));
                 }
 
                 // Encoder and decoder.
-                let msg_fmt = MessageFormat::new(data_fmts.clone());
+                let msg_fmt = MessageFormat::new(item_fmts.clone());
 
                 ui.horizontal(|ui| {
                     ui.label("Encode:");
                     ui.label(hex::encode_upper(
                         msg_fmt
-                            .encode(&Message::new(data_values.clone()))
+                            .encode(&Message::new(item_values.clone()))
                             .unwrap_or_default(),
                     ));
                 });
@@ -271,7 +271,7 @@ impl epi::App for App {
                     if ui.button("Confirm").clicked() {
                         match hex::decode(decoded_msg) {
                             Ok(bytes) => match msg_fmt.decode(&bytes) {
-                                Ok(msg) => *data_values = msg.values().clone(),
+                                Ok(msg) => *item_values = msg.values().clone(),
                                 Err(e) => warn!(
                                     "App: The bytes can not be decoded to Message, details: {}",
                                     e
@@ -293,7 +293,7 @@ impl epi::App for App {
 
                     if ui.add(ui::toggle(server_run_flag)).clicked() {
                         if *server_run_flag {
-                            let mut new_server = Server::new(MessageFormat::new(data_fmts.clone()));
+                            let mut new_server = Server::new(MessageFormat::new(item_fmts.clone()));
 
                             let listen_addr = if server_listen_addr.is_empty() {
                                 None
@@ -347,7 +347,7 @@ impl epi::App for App {
                     server
                         .as_mut()
                         .unwrap()
-                        .send_msg(server_target_addr, Message::new(data_values.clone()))
+                        .send_msg(server_target_addr, Message::new(item_values.clone()))
                         .err()
                         .iter()
                         .for_each(|e| {
@@ -365,7 +365,7 @@ impl epi::App for App {
                     ui.label("Client");
                     if ui.add(ui::toggle(client_run_flag)).clicked() {
                         if *client_run_flag {
-                            let mut new_client = Client::new(MessageFormat::new(data_fmts.clone()));
+                            let mut new_client = Client::new(MessageFormat::new(item_fmts.clone()));
 
                             let bind_addr = if client_bind_addr.is_empty() {
                                 None
@@ -418,7 +418,7 @@ impl epi::App for App {
                     client
                         .as_mut()
                         .unwrap()
-                        .send_msg(Message::new(data_values.clone()))
+                        .send_msg(Message::new(item_values.clone()))
                         .err()
                         .iter()
                         .for_each(|e| {
