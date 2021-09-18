@@ -23,8 +23,11 @@ pub enum Error {
     #[error("the data specified by index `{len_idx}` is not a length, index of data: {data_idx}")]
     NotALen { data_idx: usize, len_idx: usize },
 
-    #[error("the length is out of bound, index of data: {data_idx}, len: {len}")]
-    LenOutOfBound { data_idx: usize, len: usize },
+    #[error("the length for this kind of data is too large, max len: {max_len}, index of data: {data_idx}, actual len: {len}")]
+    LenTooLarge { max_len: usize, data_idx: usize, len: usize},
+
+    #[error("the length of value is out of bound, len specified by format: {specified_len}, index of data: {data_idx}, len of data: {data_len}")]
+    ValueLenOutOfBound { specified_len: usize, data_idx: usize, data_len: usize },
 
     #[error("no more bytes can be read")]
     Eof,

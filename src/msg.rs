@@ -81,6 +81,39 @@ enum ReadError {
 
 type ReadResult = result::Result<DataValue, ReadError>;
 
+enum WriteError {
+    LenTooLarge {
+        max_len: usize,
+        len: usize,
+    },
+    ValueLenOutOfBound {
+        specified_len: usize,
+        data_len: usize,
+    },
+}
+
+impl WriteError {
+    fn get_global_error(&self, data_idx: usize) -> Error {
+        match self {
+            Self::LenTooLarge { max_len, len } => Error::LenTooLarge {
+                max_len: *max_len,
+                data_idx,
+                len: *len,
+            },
+            Self::ValueLenOutOfBound {
+                specified_len,
+                data_len,
+            } => Error::ValueLenOutOfBound {
+                specified_len: *specified_len,
+                data_idx,
+                data_len: *data_len,
+            },
+        }
+    }
+}
+
+type WriteResult = result::Result<(), WriteError>;
+
 impl DataFormat {
     fn len(&self, values: &[DataValue]) -> LenResult {
         match self {
@@ -119,11 +152,33 @@ impl DataFormat {
         }
     }
 
-    fn write_to_buf(&self, value: &DataValue, buf: &mut &mut [u8]) {
+    fn write_to_buf(&self, len: usize, value: &DataValue, buf: &mut &mut [u8]) -> WriteResult {
+        // Validate the length
+        let mut max_len = usize::MAX;
+        let mut min_len = 0usize;
+        match value {
+            DataValue::Len(v) | DataValue::Uint(v) => max_len = size_of_val(v),
+            DataValue::Int(v) => max_len = size_of_val(v),
+
+            DataValue::String(s) => min_len = s.len(),
+            DataValue::Bytes(bytes) => min_len = bytes.len(),
+        }
+
+        if len > max_len {
+            return Err(WriteError::LenTooLarge { max_len, len });
+        }
+        if len < min_len {
+            return Err(WriteError::ValueLenOutOfBound {
+                specified_len: len,
+                data_len: min_len,
+            });
+        }
+
+        // Write value to buf.
         match (self, value) {
-            (Self::Len { len }, DataValue::Len(v)) => buf.put_uint(*v, *len),
-            (Self::Uint { len }, DataValue::Uint(v)) => buf.put_uint(*v, *len),
-            (Self::Int { len }, DataValue::Int(v)) => buf.put_int(*v, *len),
+            (Self::Len { len: _ }, DataValue::Len(v))
+            | (Self::Uint { len: _ }, DataValue::Uint(v)) => buf.put_uint(*v, len),
+            (Self::Int { len: _ }, DataValue::Int(v)) => buf.put_int(*v, len),
             (
                 Self::FixedString { len: _ } | Self::VarString { len_idx: _ },
                 DataValue::String(char_buf),
@@ -134,6 +189,8 @@ impl DataFormat {
             ) => buf.put(bytes_buf.as_slice()),
             _ => panic!(),
         }
+
+        Ok(())
     }
 
     fn read_from_tcp_stream(
@@ -249,7 +306,7 @@ impl MessageFormat {
                 data_fmt
                     .read_from_buf(len, &mut slice)
                     .map_err(|e| match e {
-                        ReadError::Eof => Error::LenOutOfBound { data_idx: idx, len },
+                        ReadError::Eof => Error::Eof,
                         ReadError::FromUtf8(e) => Error::FromUtf8 { data_idx: idx, e },
                         _ => panic!(),
                     })?,
@@ -268,7 +325,9 @@ impl MessageFormat {
                 .map_err(|e| e.get_global_error(idx))?;
             buf.resize(buf_len + value_len, 0);
             let mut slice = &mut buf[buf_len..buf_len + value_len];
-            data_fmt.write_to_buf(value, &mut slice);
+            data_fmt
+                .write_to_buf(value_len, value, &mut slice)
+                .map_err(|e| e.get_global_error(idx))?;
             buf_len += value_len;
         }
 
