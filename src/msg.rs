@@ -200,7 +200,7 @@ impl ItemFormat {
         stop_flag: Arc<AtomicBool>,
     ) -> ReadResult {
         let mut integer_buf = [0u8; size_of::<u64>()];
-        let mut integer_slice = &mut integer_buf[size_of::<u64>() - len..];
+        let mut integer_slice = &mut integer_buf[size_of::<u64>().max(len) - len..];
 
         let mut bytes_buf = vec![0u8; len];
 
