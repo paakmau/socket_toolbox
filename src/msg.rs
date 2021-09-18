@@ -50,28 +50,6 @@ pub enum ItemFormat {
     VarBytes { len_idx: usize },
 }
 
-enum LenError {
-    LenIdxOutOfBound { len_idx: usize },
-    NotALen { len_idx: usize },
-}
-
-impl LenError {
-    fn global_error(&self, item_idx: usize) -> Error {
-        match self {
-            Self::LenIdxOutOfBound { len_idx } => Error::LenIdxOutOfBound {
-                item_idx,
-                len_idx: *len_idx,
-            },
-            Self::NotALen { len_idx } => Error::NotALen {
-                item_idx,
-                len_idx: *len_idx,
-            },
-        }
-    }
-}
-
-type LenResult = result::Result<usize, LenError>;
-
 enum ReadError {
     Io(std::io::Error),
     Eof,
@@ -115,16 +93,74 @@ impl WriteError {
 type WriteResult = result::Result<(), WriteError>;
 
 impl ItemFormat {
-    fn len(&self, values: &[ItemValue]) -> LenResult {
+    fn err(&self, idx: usize, fmts: &[ItemFormat]) -> Option<Error> {
+        let mut max_len = usize::MAX;
         match self {
-            Self::Len { len } => Ok(*len),
-            Self::Uint { len } => Ok(*len),
-            Self::Int { len } => Ok(*len),
-            Self::FixedString { len } => Ok(*len),
-            Self::VarString { len_idx } => Self::len_by_idx(*len_idx, values),
-            Self::FixedBytes { len } => Ok(*len),
-            Self::VarBytes { len_idx } => Self::len_by_idx(*len_idx, values),
+            Self::Len { len: _ } | Self::Uint { len: _ } => max_len = size_of::<u64>(),
+            Self::Int { len: _ } => max_len = size_of::<u64>(),
+            _ => {}
         }
+
+        match self {
+            // Validate the length.
+            Self::Len { len }
+            | Self::Uint { len }
+            | Self::Int { len }
+            | Self::FixedString { len }
+            | Self::FixedBytes { len } => {
+                if *len > max_len {
+                    return Some(Error::LenTooLarge {
+                        max_len,
+                        item_idx: idx,
+                        len: *len,
+                    });
+                }
+            }
+
+            // Validate the index of length.
+            Self::VarString { len_idx } | Self::VarBytes { len_idx } => {
+                if *len_idx > idx {
+                    return Some(Error::LenIdxTooLarge {
+                        item_idx: idx,
+                        len_idx: *len_idx,
+                    });
+                } else if let Self::Len { len: _ } = fmts[*len_idx] {
+                } else {
+                    return Some(Error::NotALen {
+                        item_idx: idx,
+                        len_idx: *len_idx,
+                    });
+                }
+            }
+        }
+        None
+    }
+
+    fn len_by_idx(len_idx: usize, values: &[ItemValue]) -> usize {
+        if let Some(value) = values.get(len_idx) {
+            match value {
+                ItemValue::Len(v) => *v as usize,
+                _ => panic!(),
+            }
+        } else {
+            panic!()
+        }
+    }
+
+    fn len(&self, idx: usize, fmts: &[ItemFormat], values: &[ItemValue]) -> Result<usize> {
+        if let Some(e) = self.err(idx, fmts) {
+            return Err(e);
+        }
+
+        Ok(match self {
+            Self::Len { len } => *len,
+            Self::Uint { len } => *len,
+            Self::Int { len } => *len,
+            Self::FixedString { len } => *len,
+            Self::VarString { len_idx } => Self::len_by_idx(*len_idx, values),
+            Self::FixedBytes { len } => *len,
+            Self::VarBytes { len_idx } => Self::len_by_idx(*len_idx, values),
+        })
     }
 
     fn read_from_buf(&self, len: usize, buf: &mut &[u8]) -> ReadResult {
@@ -248,17 +284,6 @@ impl ItemFormat {
             }
         }
     }
-
-    fn len_by_idx(len_idx: usize, values: &[ItemValue]) -> LenResult {
-        if let Some(value) = values.get(len_idx) {
-            match value {
-                ItemValue::Len(v) => Ok(*v as usize),
-                _ => Err(LenError::NotALen { len_idx }),
-            }
-        } else {
-            Err(LenError::LenIdxOutOfBound { len_idx })
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -275,11 +300,24 @@ impl MessageFormat {
         self.item_fmts.is_empty()
     }
 
+    pub fn err(&self) -> Option<Error> {
+        if self.item_fmts.is_empty() {
+            return Some(Error::MessageFormatEmpty);
+        }
+
+        for (idx, item_fmt) in self.item_fmts.iter().enumerate() {
+            if let Some(e) = item_fmt.err(idx, &self.item_fmts) {
+                return Some(e);
+            }
+        }
+        None
+    }
+
     pub fn decode(&self, buf: &[u8]) -> Result<Message> {
         let mut values = Vec::<ItemValue>::with_capacity(self.item_fmts.len());
         let mut slice = buf;
         for (idx, item_fmt) in self.item_fmts.iter().enumerate() {
-            let len = item_fmt.len(&values).map_err(|e| e.global_error(idx))?;
+            let len = item_fmt.len(idx, &self.item_fmts, &values)?;
             values.push(
                 item_fmt
                     .read_from_buf(len, &mut slice)
@@ -298,9 +336,7 @@ impl MessageFormat {
         let mut buf = Vec::<u8>::default();
         let mut buf_len = 0;
         for (idx, (item_fmt, value)) in self.item_fmts.iter().zip(msg.values.iter()).enumerate() {
-            let value_len = item_fmt
-                .len(&msg.values)
-                .map_err(|e| e.global_error(idx))?;
+            let value_len = item_fmt.len(idx, &self.item_fmts, &msg.values)?;
             buf.resize(buf_len + value_len, 0);
             let mut slice = &mut buf[buf_len..buf_len + value_len];
             item_fmt
@@ -315,7 +351,7 @@ impl MessageFormat {
     pub fn read_from(&self, stream: &mut TcpStream, stop_flag: Arc<AtomicBool>) -> Result<Message> {
         let mut values = Vec::<ItemValue>::with_capacity(self.item_fmts.len());
         for (idx, item_fmt) in self.item_fmts.iter().enumerate() {
-            let len = item_fmt.len(&values).map_err(|e| e.global_error(idx))?;
+            let len = item_fmt.len(idx, &self.item_fmts, &values)?;
             match item_fmt.read_from_tcp_stream(len, stream, stop_flag.clone()) {
                 Ok(v) => values.push(v),
                 Err(ReadError::Io(e)) => return Err(Error::Io(e)),

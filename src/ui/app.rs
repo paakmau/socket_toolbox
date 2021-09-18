@@ -28,6 +28,9 @@ pub struct App {
     item_fmts: Option<Vec<ItemFormat>>,
     item_values: Option<Vec<ItemValue>>,
 
+    msg_fmt: Option<MessageFormat>,
+    msg_fmt_validation_error: Option<Error>,
+
     decoded_msg: String,
 
     client_bind_addr: String,
@@ -64,6 +67,8 @@ impl epi::App for App {
             item_parse_error,
             item_fmts,
             item_values,
+            msg_fmt,
+            msg_fmt_validation_error,
             decoded_msg,
             client_bind_addr,
             client_connect_addr,
@@ -235,6 +240,17 @@ impl epi::App for App {
                         .push(item_kind_wrappers.last().unwrap().default_item_value());
                 }
 
+                // Construct message format.
+                if let Some(item_fmts) = item_fmts {
+                    let fmt = MessageFormat::new(item_fmts.clone());
+                    *msg_fmt_validation_error = fmt.err();
+                    if msg_fmt_validation_error.is_some() {
+                        *msg_fmt = None;
+                    } else {
+                        *msg_fmt = Some(fmt);
+                    }
+                }
+
                 ui.separator();
 
                 // Show parse error if exists.
@@ -242,8 +258,11 @@ impl epi::App for App {
                     ui.label(format!("Parse error: {}", e));
                 }
 
-                if let Some(item_fmts) = item_fmts.as_ref() {
-                    let msg_fmt = MessageFormat::new(item_fmts.clone());
+                // Show validation error if exists.
+                if let Some(e) = msg_fmt_validation_error {
+                    ui.label(format!("validation error: {}", e));
+                } else {
+                    let msg_fmt = msg_fmt.as_ref().unwrap();
 
                     if let Some(item_values) = item_values.as_ref() {
                         // Encode the input to bytes, show errors if fails.
@@ -368,6 +387,11 @@ impl epi::App for App {
             // Group for client.
             ui.group(|ui| {
                 ui.horizontal(|ui| {
+                    // Client shouldn't run if item formats is not valid.
+                    if !item_fmts.is_some() {
+                        ui.set_enabled(false);
+                    }
+
                     ui.label("Client");
                     if widget::toggle(client_run_flag).ui(ui).clicked() {
                         if *client_run_flag {

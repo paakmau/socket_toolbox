@@ -33,8 +33,8 @@ pub enum Error {
     #[error("the client not connected to a server")]
     NotConnected,
 
-    #[error("the index of length is out of bound, index of item: `{item_idx}`, index of length: `{len_idx}`")]
-    LenIdxOutOfBound { item_idx: usize, len_idx: usize },
+    #[error("the index of length should be smaller than the index of item, index of item: `{item_idx}`, index of length: `{len_idx}`")]
+    LenIdxTooLarge { item_idx: usize, len_idx: usize },
 
     #[error(
         "the item specified by index `{len_idx}` is not a length, index of item: `{item_idx}`"
