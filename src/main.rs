@@ -257,12 +257,17 @@ impl epi::App for App {
                 let msg_fmt = MessageFormat::new(item_fmts.clone());
 
                 ui.horizontal(|ui| {
-                    ui.label("Encode:");
-                    ui.label(hex::encode_upper(
-                        msg_fmt
-                            .encode(&Message::new(item_values.clone()))
-                            .unwrap_or_default(),
-                    ));
+                    let res = msg_fmt.encode(&Message::new(item_values.clone()));
+                    match res {
+                        Ok(bytes) => {
+                            ui.label("Encode:");
+                            ui.label(hex::encode_upper(bytes));
+                        }
+                        Err(e) => {
+                            ui.label("Encode error:");
+                            ui.label(e.to_string());
+                        }
+                    }
                 });
 
                 ui.horizontal(|ui| {
