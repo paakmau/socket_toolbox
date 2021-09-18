@@ -1,3 +1,3 @@
 mod toggle;
 
-pub use toggle::*;
+pub(super) use toggle::*;
