@@ -366,3 +366,37 @@ impl MessageFormat {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::msg::{ItemFormat, ItemValue, Message, MessageFormat};
+
+    #[test]
+    fn encode_and_decode_ok() {
+        let fmt = MessageFormat::new(vec![
+            ItemFormat::Len { len: 2 },
+            ItemFormat::Uint { len: 2 },
+            ItemFormat::Int { len: 1 },
+            ItemFormat::FixedString { len: 8 },
+            ItemFormat::VarString { len_idx: 0 },
+        ]);
+
+        let msg = Message::new(vec![
+            ItemValue::Len(16),
+            ItemValue::Uint(2333),
+            ItemValue::Int(127),
+            ItemValue::String("aaaabbbb".to_string()),
+            ItemValue::String("aaaabbbbccccdddd".to_string()),
+        ]);
+
+        let bytes = fmt.encode(&msg);
+
+        assert!(bytes.is_ok());
+
+        let decoded_msg = fmt.decode(bytes.as_ref().unwrap());
+
+        assert!(decoded_msg.is_ok());
+
+        assert_eq!(msg, decoded_msg.unwrap());
+    }
+}
