@@ -12,8 +12,9 @@ use eframe::egui::{self, Widget};
 /// ```
 /// # let ui = &mut egui::Ui::__test();
 /// # let mut my_bool = true;
-/// ui.add(widget::Toggle::new(&mut on));
+/// ui.add(widget::Toggle::new(&mut my_bool));
 /// ```
+#[must_use = "You should put this widget in an ui with `ui.add(widget);`"]
 pub struct Toggle<'a> {
     on: &'a mut bool,
     enabled: bool,
