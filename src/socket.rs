@@ -360,7 +360,4 @@ mod tests {
         s.stop();
         c.stop();
     }
-
-    #[test]
-    fn send_to_client_ok() {}
 }
