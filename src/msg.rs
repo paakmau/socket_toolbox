@@ -96,8 +96,8 @@ impl ItemFormat {
     fn err(&self, idx: usize, fmts: &[ItemFormat]) -> Option<Error> {
         let mut max_len = usize::MAX;
         match self {
-            Self::Len { len: _ } | Self::Uint { len: _ } => max_len = size_of::<u64>(),
-            Self::Int { len: _ } => max_len = size_of::<u64>(),
+            Self::Len { .. } | Self::Uint { .. } => max_len = size_of::<u64>(),
+            Self::Int { .. } => max_len = size_of::<u64>(),
             _ => {}
         }
 
@@ -124,7 +124,7 @@ impl ItemFormat {
                         item_idx: idx,
                         len_idx: *len_idx,
                     });
-                } else if let Self::Len { len: _ } = fmts[*len_idx] {
+                } else if let Self::Len { .. } = fmts[*len_idx] {
                 } else {
                     return Some(Error::NotALen {
                         item_idx: idx,
@@ -169,10 +169,10 @@ impl ItemFormat {
         }
 
         match self {
-            Self::Len { len: _ } => Ok(ItemValue::Len(buf.get_uint(len))),
-            Self::Uint { len: _ } => Ok(ItemValue::Uint(buf.get_uint(len))),
-            Self::Int { len: _ } => Ok(ItemValue::Int(buf.get_int(len))),
-            Self::FixedString { len: _ } | Self::VarString { len_idx: _ } => {
+            Self::Len { .. } => Ok(ItemValue::Len(buf.get_uint(len))),
+            Self::Uint { .. } => Ok(ItemValue::Uint(buf.get_uint(len))),
+            Self::Int { .. } => Ok(ItemValue::Int(buf.get_int(len))),
+            Self::FixedString { .. } | Self::VarString { .. } => {
                 let mut str_buf = vec![0u8; len];
                 buf.read_exact(&mut str_buf).unwrap();
                 match String::from_utf8(str_buf) {
@@ -180,7 +180,7 @@ impl ItemFormat {
                     Err(e) => Err(ReadError::FromUtf8(e)),
                 }
             }
-            Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ } => {
+            Self::FixedBytes { .. } | Self::VarBytes { .. } => {
                 let mut bytes_buf = vec![0u8; len];
                 buf.read_exact(&mut bytes_buf).unwrap();
                 Ok(ItemValue::Bytes(bytes_buf))
@@ -212,17 +212,16 @@ impl ItemFormat {
 
         // Write value to buf.
         match (self, value) {
-            (Self::Len { len: _ }, ItemValue::Len(v))
-            | (Self::Uint { len: _ }, ItemValue::Uint(v)) => buf.put_uint(*v, len),
-            (Self::Int { len: _ }, ItemValue::Int(v)) => buf.put_int(*v, len),
-            (
-                Self::FixedString { len: _ } | Self::VarString { len_idx: _ },
-                ItemValue::String(char_buf),
-            ) => buf.put(char_buf.as_bytes()),
-            (
-                Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ },
-                ItemValue::Bytes(bytes_buf),
-            ) => buf.put(bytes_buf.as_slice()),
+            (Self::Len { .. }, ItemValue::Len(v)) | (Self::Uint { .. }, ItemValue::Uint(v)) => {
+                buf.put_uint(*v, len)
+            }
+            (Self::Int { .. }, ItemValue::Int(v)) => buf.put_int(*v, len),
+            (Self::FixedString { .. } | Self::VarString { .. }, ItemValue::String(char_buf)) => {
+                buf.put(char_buf.as_bytes())
+            }
+            (Self::FixedBytes { .. } | Self::VarBytes { .. }, ItemValue::Bytes(bytes_buf)) => {
+                buf.put(bytes_buf.as_slice())
+            }
             _ => panic!(),
         }
 
@@ -241,13 +240,13 @@ impl ItemFormat {
         let mut bytes_buf = vec![0u8; len];
 
         while let Err(e) = match self {
-            Self::Len { len: _ } | Self::Uint { len: _ } | Self::Int { len: _ } => {
+            Self::Len { .. } | Self::Uint { .. } | Self::Int { .. } => {
                 stream.read_exact(&mut integer_slice)
             }
-            Self::FixedString { len: _ }
-            | Self::VarString { len_idx: _ }
-            | Self::FixedBytes { len: _ }
-            | Self::VarBytes { len_idx: _ } => stream.read_exact(&mut bytes_buf),
+            Self::FixedString { .. }
+            | Self::VarString { .. }
+            | Self::FixedBytes { .. }
+            | Self::VarBytes { .. } => stream.read_exact(&mut bytes_buf),
         } {
             match e.kind() {
                 io::ErrorKind::UnexpectedEof | io::ErrorKind::ConnectionReset => {
@@ -264,24 +263,22 @@ impl ItemFormat {
         }
 
         match self {
-            Self::Len { len: _ } => Ok(ItemValue::Len(u64::from_be_bytes(integer_buf))),
-            Self::Uint { len: _ } => Ok(ItemValue::Uint(u64::from_be_bytes(integer_buf))),
-            Self::Int { len: _ } => {
+            Self::Len { .. } => Ok(ItemValue::Len(u64::from_be_bytes(integer_buf))),
+            Self::Uint { .. } => Ok(ItemValue::Uint(u64::from_be_bytes(integer_buf))),
+            Self::Int { .. } => {
                 let mut v = i64::from_be_bytes(integer_buf);
 
                 let offset = (size_of::<u64>() - len) * u8::BITS as usize;
                 v = v << offset >> offset;
                 Ok(ItemValue::Int(v))
             }
-            Self::FixedString { len: _ } | Self::VarString { len_idx: _ } => {
+            Self::FixedString { .. } | Self::VarString { .. } => {
                 match String::from_utf8(bytes_buf) {
                     Ok(s) => Ok(ItemValue::String(s)),
                     Err(e) => Err(ReadError::FromUtf8(e)),
                 }
             }
-            Self::FixedBytes { len: _ } | Self::VarBytes { len_idx: _ } => {
-                Ok(ItemValue::Bytes(bytes_buf))
-            }
+            Self::FixedBytes { .. } | Self::VarBytes { .. } => Ok(ItemValue::Bytes(bytes_buf)),
         }
     }
 }

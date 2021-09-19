@@ -21,13 +21,13 @@ pub enum ItemKindWrapper {
 impl ItemKindWrapper {
     pub fn from_item_format(fmt: &ItemFormatWrapper) -> Self {
         match fmt {
-            ItemFormatWrapper::Len { len: _ } => Self::Len,
-            ItemFormatWrapper::Uint { len: _ } => Self::Uint,
-            ItemFormatWrapper::Int { len: _ } => Self::Int,
-            ItemFormatWrapper::FixedString { len: _ } => Self::FixedString,
-            ItemFormatWrapper::VarString { len_idx: _ } => Self::VarString,
-            ItemFormatWrapper::FixedBytes { len: _ } => Self::FixedBytes,
-            ItemFormatWrapper::VarBytes { len_idx: _ } => Self::VarBytes,
+            ItemFormatWrapper::Len { .. } => Self::Len,
+            ItemFormatWrapper::Uint { .. } => Self::Uint,
+            ItemFormatWrapper::Int { .. } => Self::Int,
+            ItemFormatWrapper::FixedString { .. } => Self::FixedString,
+            ItemFormatWrapper::VarString { .. } => Self::VarString,
+            ItemFormatWrapper::FixedBytes { .. } => Self::FixedBytes,
+            ItemFormatWrapper::VarBytes { .. } => Self::VarBytes,
         }
     }
 
