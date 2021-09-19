@@ -15,7 +15,7 @@ use bytes::{Buf, BufMut};
 
 use crate::error::{Error, Result};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ItemValue {
     Len(u64),
     Uint(u64),
@@ -24,7 +24,7 @@ pub enum ItemValue {
     Bytes(Vec<u8>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Message {
     values: Vec<ItemValue>,
 }
