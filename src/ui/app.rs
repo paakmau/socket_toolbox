@@ -311,7 +311,12 @@ impl epi::App for App {
                 ui.horizontal(|ui| {
                     ui.label("Server");
 
-                    if widget::toggle(server_run_flag).ui(ui).clicked() {
+                    // Sever shouldn't run if item formats is not valid.
+                    if widget::Toggle::new(server_run_flag)
+                        .enabled(msg_fmt.is_some())
+                        .ui(ui)
+                        .clicked()
+                    {
                         if *server_run_flag {
                             let mut new_server = Server::new(MessageFormat::new(
                                 item_fmts.as_ref().unwrap().clone(),
@@ -387,13 +392,14 @@ impl epi::App for App {
             // Group for client.
             ui.group(|ui| {
                 ui.horizontal(|ui| {
-                    // Client shouldn't run if item formats is not valid.
-                    if !item_fmts.is_some() {
-                        ui.set_enabled(false);
-                    }
-
                     ui.label("Client");
-                    if widget::toggle(client_run_flag).ui(ui).clicked() {
+
+                    // Client shouldn't run if item formats is not valid.
+                    if widget::Toggle::new(client_run_flag)
+                        .enabled(msg_fmt.is_some())
+                        .ui(ui)
+                        .clicked()
+                    {
                         if *client_run_flag {
                             let mut new_client = Client::new(MessageFormat::new(
                                 item_fmts.as_ref().unwrap().clone(),
