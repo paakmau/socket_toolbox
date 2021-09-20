@@ -326,7 +326,7 @@ impl<'a, W: io::Write> MessageEncoder<'a, W> {
             let len = value_len(item_fmt, msg);
             let mut buf = vec![0u8; len];
             buf.deref_mut().write(item_fmt, idx, item_value, msg)?;
-            self.w.write(&buf)?;
+            self.w.write_all(&buf)?;
         }
 
         Ok(())
