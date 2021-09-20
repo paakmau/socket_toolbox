@@ -209,10 +209,6 @@ impl Client {
     }
 
     pub fn run(&mut self, bind_addr: Option<&str>, connect_addr: &str) -> Result<()> {
-        if self.fmt.is_empty() {
-            return Err(Error::MessageFormatEmpty);
-        }
-
         let connect_addr: SocketAddr = connect_addr.parse().map_err(|_| Error::AddrParse {
             invalid_addr: connect_addr.to_string(),
         })?;
