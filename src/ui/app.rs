@@ -243,14 +243,14 @@ impl epi::App for App {
                 }
 
                 // Construct message format.
+                *msg_fmt = None;
+                *msg_fmt_validation_error = None;
                 if let Some(item_fmts) = item_fmts {
                     match MessageFormat::new(item_fmts) {
                         Ok(fmt) => {
                             *msg_fmt = Some(fmt);
-                            *msg_fmt_validation_error = None;
                         }
                         Err(e) => {
-                            *msg_fmt = None;
                             *msg_fmt_validation_error = Some(e);
                         }
                     }
@@ -258,14 +258,12 @@ impl epi::App for App {
 
                 ui.separator();
 
-                // Show parse error if exists.
                 if let Some(e) = item_parse_error.as_ref() {
+                    // Show parse error if exists.
                     ui.label(format!("Parse error: {}", e));
-                }
-
-                // Show validation error if exists.
-                if let Some(e) = msg_fmt_validation_error {
-                    ui.label(format!("validation error: {}", e));
+                } else if let Some(e) = msg_fmt_validation_error {
+                    // Show validation error if exists.
+                    ui.label(format!("Validation error: {}", e));
                 } else {
                     let msg_fmt = msg_fmt.as_ref().unwrap();
 
