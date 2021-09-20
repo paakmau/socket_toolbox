@@ -41,6 +41,13 @@ pub enum Error {
     )]
     NotALen { item_idx: usize, len_idx: usize },
 
+    #[error("the length for this kind of item is too small, min len: `{min_len}`, index of item: `{item_idx}`, actual len: `{len}`")]
+    LenTooSmall {
+        min_len: usize,
+        item_idx: usize,
+        len: usize,
+    },
+
     #[error("the length for this kind of item is too large, max len: `{max_len}`, index of item: `{item_idx}`, actual len: `{len}`")]
     LenTooLarge {
         max_len: usize,

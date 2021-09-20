@@ -46,6 +46,7 @@ impl MessageFormat {
     }
 
     fn validate_fmt(fmt: &ItemFormat, idx: usize, fmts: &[ItemFormat]) -> Result<()> {
+        let min_len = 1;
         let mut max_len = usize::MAX;
         match fmt {
             ItemFormat::Len { .. } | ItemFormat::Uint { .. } => max_len = size_of::<u64>(),
@@ -60,7 +61,13 @@ impl MessageFormat {
             | ItemFormat::Int { len }
             | ItemFormat::FixedString { len }
             | ItemFormat::FixedBytes { len } => {
-                if *len > max_len {
+                if *len < min_len {
+                    return Err(Error::LenTooSmall {
+                        min_len,
+                        item_idx: idx,
+                        len: *len,
+                    });
+                } else if *len > max_len {
                     return Err(Error::LenTooLarge {
                         max_len,
                         item_idx: idx,
