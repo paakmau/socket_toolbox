@@ -244,7 +244,7 @@ impl epi::App for App {
 
                 // Construct message format.
                 if let Some(item_fmts) = item_fmts {
-                    match MessageFormat::new(&item_fmts) {
+                    match MessageFormat::new(item_fmts) {
                         Ok(fmt) => {
                             *msg_fmt = Some(fmt);
                             *msg_fmt_validation_error = None;
@@ -272,7 +272,7 @@ impl epi::App for App {
                     if let Some(item_values) = item_values.as_ref() {
                         // Encode the input to bytes, show errors if fails.
                         let mut buf = Vec::<u8>::default();
-                        let res = MessageEncoder::new(&msg_fmt, &mut buf)
+                        let res = MessageEncoder::new(msg_fmt, &mut buf)
                             .encode(&Message::new(item_values.clone()));
                         match res {
                             Ok(..) => {
@@ -291,7 +291,7 @@ impl epi::App for App {
                         if ui.button("Confirm").clicked() {
                             match hex::decode(decoded_msg) {
                                 Ok(bytes) => {
-                                    match MessageDecoder::new(&msg_fmt, bytes.deref())
+                                    match MessageDecoder::new(msg_fmt, bytes.deref())
                                         .decode(Default::default())
                                     {
                                         Ok(msg) => {

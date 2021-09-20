@@ -320,11 +320,8 @@ mod tests {
     fn send_msg_ok() {
         SimpleLogger::init(log::LevelFilter::Debug, Default::default()).unwrap();
 
-        let fmt = MessageFormat::new(&vec![
-            ItemFormat::Uint { len: 2 },
-            ItemFormat::Int { len: 1 },
-        ])
-        .unwrap();
+        let fmt =
+            MessageFormat::new(&[ItemFormat::Uint { len: 2 }, ItemFormat::Int { len: 1 }]).unwrap();
 
         let msg_client_1 = Message::new(vec![ItemValue::Uint(255), ItemValue::Int(7)]);
         let msg_client_2 = Message::new(vec![ItemValue::Uint(0), ItemValue::Int(-8)]);

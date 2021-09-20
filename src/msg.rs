@@ -38,7 +38,7 @@ impl MessageFormat {
 
         fmts.iter()
             .enumerate()
-            .try_for_each(|(idx, fmt)| Self::validate_fmt(fmt, idx, &fmts))?;
+            .try_for_each(|(idx, fmt)| Self::validate_fmt(fmt, idx, fmts))?;
 
         Ok(Self {
             fmts: fmts.to_vec(),
@@ -304,7 +304,7 @@ impl<'a, R: io::Read> MessageDecoder<'a, R> {
                     }
                 }
             }
-            values.push(buf.deref().read(&item_fmt, idx, &values)?);
+            values.push(buf.deref().read(item_fmt, idx, &values)?);
         }
 
         Ok(Message { values })
@@ -343,7 +343,7 @@ mod tests {
 
     #[test]
     fn encode_and_decode_ok() {
-        let fmt = MessageFormat::new(&vec![
+        let fmt = MessageFormat::new(&[
             ItemFormat::Len { len: 2 },
             ItemFormat::Uint { len: 2 },
             ItemFormat::Int { len: 1 },
