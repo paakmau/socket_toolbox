@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use eframe::{
     egui::{self, TextEdit, Widget},
     epi,
@@ -7,7 +9,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
     error::{Error, Result},
-    msg::{ItemFormat, ItemValue, Message, MessageFormat},
+    msg::{ItemFormat, ItemValue, Message, MessageDecoder, MessageEncoder, MessageFormat},
     socket::{Client, Server},
 };
 
@@ -242,12 +244,15 @@ impl epi::App for App {
 
                 // Construct message format.
                 if let Some(item_fmts) = item_fmts {
-                    let fmt = MessageFormat::new(item_fmts.clone());
-                    *msg_fmt_validation_error = fmt.err();
-                    if msg_fmt_validation_error.is_some() {
-                        *msg_fmt = None;
-                    } else {
-                        *msg_fmt = Some(fmt);
+                    match MessageFormat::new(&item_fmts) {
+                        Ok(fmt) => {
+                            *msg_fmt = Some(fmt);
+                            *msg_fmt_validation_error = None;
+                        }
+                        Err(e) => {
+                            *msg_fmt = None;
+                            *msg_fmt_validation_error = Some(e);
+                        }
                     }
                 }
 
@@ -266,10 +271,12 @@ impl epi::App for App {
 
                     if let Some(item_values) = item_values.as_ref() {
                         // Encode the input to bytes, show errors if fails.
-                        let res = msg_fmt.encode(&Message::new(item_values.clone()));
+                        let mut buf = Vec::<u8>::default();
+                        let res = MessageEncoder::new(&msg_fmt, &mut buf)
+                            .encode(&Message::new(item_values.clone()));
                         match res {
-                            Ok(bytes) => {
-                                ui.label(format!("Encode: {}", hex::encode_upper(bytes)));
+                            Ok(..) => {
+                                ui.label(format!("Encode: {}", hex::encode_upper(buf)));
                             }
                             Err(e) => {
                                 ui.label(format!("Encode error: {}", e));
@@ -283,19 +290,24 @@ impl epi::App for App {
                         ui.text_edit_singleline(decoded_msg);
                         if ui.button("Confirm").clicked() {
                             match hex::decode(decoded_msg) {
-                                Ok(bytes) => match msg_fmt.decode(&bytes) {
-                                    Ok(msg) => {
-                                        *item_value_wrappers = msg
-                                            .values()
-                                            .iter()
-                                            .map(ItemValueWrapper::from)
-                                            .collect()
-                                    }
-                                    Err(e) => warn!(
+                                Ok(bytes) => {
+                                    match MessageDecoder::new(&msg_fmt, bytes.deref())
+                                        .decode(Default::default())
+                                    {
+                                        Ok(msg) => {
+                                            *item_value_wrappers = msg
+                                                .values()
+                                                .iter()
+                                                .map(ItemValueWrapper::from)
+                                                .collect()
+                                        }
+                                        Err(e) => warn!(
                                         "App: The bytes can not be decoded to Message, details: {}",
                                         e
                                     ),
-                                },
+                                    }
+                                }
+
                                 Err(e) => warn!(
                                     "App: The string can not be decoded to bytes, details: {}",
                                     e
@@ -318,9 +330,7 @@ impl epi::App for App {
                         .clicked()
                     {
                         if *server_run_flag {
-                            let mut new_server = Server::new(MessageFormat::new(
-                                item_fmts.as_ref().unwrap().clone(),
-                            ));
+                            let mut new_server = Server::new(msg_fmt.as_ref().unwrap().clone());
 
                             let listen_addr = if server_listen_addr.is_empty() {
                                 None
@@ -401,9 +411,7 @@ impl epi::App for App {
                         .clicked()
                     {
                         if *client_run_flag {
-                            let mut new_client = Client::new(MessageFormat::new(
-                                item_fmts.as_ref().unwrap().clone(),
-                            ));
+                            let mut new_client = Client::new(msg_fmt.as_ref().unwrap().clone());
 
                             let bind_addr = if client_bind_addr.is_empty() {
                                 None

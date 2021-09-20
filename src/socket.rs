@@ -16,7 +16,7 @@ use socket2::{Domain, Protocol, Socket, Type};
 
 use crate::{
     error::{Error, Result},
-    msg::{Message, MessageFormat},
+    msg::{Message, MessageDecoder, MessageEncoder, MessageFormat},
 };
 
 pub struct Server {
@@ -50,10 +50,6 @@ impl Server {
     }
 
     pub fn run(&mut self, listen_addr: Option<&str>) -> Result<()> {
-        if self.fmt.is_empty() {
-            return Err(Error::MessageFormatEmpty);
-        }
-
         let listen_addr = listen_addr.unwrap_or("127.0.0.1:0");
 
         let listen_addr: SocketAddr = listen_addr.parse().map_err(|_| Error::AddrParse {
@@ -103,7 +99,7 @@ impl Server {
                                 break;
                             }
 
-                            match fmt.read_from(&mut stream, stop_flag.clone()) {
+                            match MessageDecoder::new(&fmt, &mut stream).decode(stop_flag.clone()) {
                                 Ok(msg) => {
                                     info!("Server: Received from `{}`, msg: {:?}", addr, msg);
                                 }
@@ -127,7 +123,8 @@ impl Server {
                         let mut stream = stream.try_clone().unwrap();
                         writer_handles.push(std::thread::spawn(move || {
                             while let Ok(msg) = rx.recv() {
-                                if let Ok(()) = fmt.write_to(&msg, &mut stream) {
+                                if let Ok(()) = MessageEncoder::new(&fmt, &mut stream).encode(&msg)
+                                {
                                     info!("Server: Sent to `{}`, msg: {:?}", addr, msg);
                                 } else {
                                     break;
@@ -249,7 +246,7 @@ impl Client {
                 break;
             }
 
-            match fmt.read_from(&mut stream, stop_flag.clone()) {
+            match MessageDecoder::new(&fmt, &mut stream).decode(stop_flag.clone()) {
                 Ok(msg) => {
                     info!("Client: Received from `{}`, msg: {:?}", &connect_addr, &msg);
                 }
@@ -268,7 +265,7 @@ impl Client {
         let mut stream: TcpStream = socket.try_clone().map_err(Error::Io)?.into();
         self.writer_handle = Some(std::thread::spawn(move || {
             while let Ok(msg) = rx.recv() {
-                match fmt.write_to(&msg, &mut stream) {
+                match MessageEncoder::new(&fmt, &mut stream).encode(&msg) {
                     Ok(()) => {
                         info!("Client: Sent to `{}`, msg: {:?}", &connect_addr, &msg);
                     }
@@ -327,10 +324,11 @@ mod tests {
     fn send_msg_ok() {
         SimpleLogger::init(log::LevelFilter::Debug, Default::default()).unwrap();
 
-        let fmt = MessageFormat::new(vec![
+        let fmt = MessageFormat::new(&vec![
             ItemFormat::Uint { len: 2 },
             ItemFormat::Int { len: 1 },
-        ]);
+        ])
+        .unwrap();
 
         let msg_client_1 = Message::new(vec![ItemValue::Uint(255), ItemValue::Int(7)]);
         let msg_client_2 = Message::new(vec![ItemValue::Uint(0), ItemValue::Int(-8)]);

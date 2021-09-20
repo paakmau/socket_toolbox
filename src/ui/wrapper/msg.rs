@@ -33,7 +33,7 @@ impl ItemKindWrapper {
 
     pub fn default_item_format(&self) -> ItemFormatWrapper {
         match self {
-            Self::Len => ItemFormatWrapper::Len { len: 0.to_string() },
+            Self::Len => ItemFormatWrapper::Len { len: 1.to_string() },
             Self::Uint => ItemFormatWrapper::Uint { len: 1.to_string() },
             Self::Int => ItemFormatWrapper::Int { len: 1.to_string() },
             Self::FixedString => ItemFormatWrapper::FixedString { len: 1.to_string() },
