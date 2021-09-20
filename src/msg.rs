@@ -235,7 +235,7 @@ impl Write for &mut [u8] {
             return Err(Error::ValueLenOutOfBound {
                 specified_len: len,
                 item_idx: idx,
-                item_len: min_len,
+                len: min_len,
             });
         }
 

@@ -48,11 +48,11 @@ pub enum Error {
         len: usize,
     },
 
-    #[error("the length of value is out of bound, len specified by format: `{specified_len}`, index of item: `{item_idx}`, len of item: `{item_len}`")]
+    #[error("the length of value is out of bound, len specified by format: `{specified_len}`, index of item: `{item_idx}`, len of item: `{len}`")]
     ValueLenOutOfBound {
         specified_len: usize,
         item_idx: usize,
-        item_len: usize,
+        len: usize,
     },
 
     #[error("no more bytes can be read")]
