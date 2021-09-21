@@ -91,11 +91,13 @@ impl epi::App for App {
                 let can_modify_format = !*server_run_flag && !*client_run_flag;
 
                 egui::Grid::new("message")
-                    .num_columns(2)
+                    .num_columns(3)
                     .striped(true)
                     .show(ui, |ui| {
+                        ui.label("Kind");
                         ui.label("Format");
                         ui.label("Value");
+                        ui.label("Operation");
                         ui.end_row();
 
                         let mut removed_idx = None;
@@ -104,6 +106,7 @@ impl epi::App for App {
                             .zip(item_fmt_wrappers.iter_mut())
                             .enumerate()
                         {
+                            // Input item kind.
                             ui.vertical(|ui| {
                                 ui.set_enabled(can_modify_format);
 
@@ -121,8 +124,12 @@ impl epi::App for App {
                                     *fmt = kind.default_item_format();
                                     *value = kind.default_item_value();
                                 }
+                            });
 
-                                // Input item format.
+                            // Input item format.
+                            ui.vertical(|ui| {
+                                ui.set_enabled(can_modify_format);
+
                                 match fmt {
                                     ItemFormatWrapper::Len { len }
                                     | ItemFormatWrapper::Uint { len }
@@ -146,10 +153,6 @@ impl epi::App for App {
 
                             // Input item value.
                             ui.vertical(|ui| {
-                                if ui.button("Delete").clicked() {
-                                    removed_idx = Some(idx);
-                                }
-
                                 let value = &mut item_value_wrappers[idx];
                                 match value {
                                     ItemValueWrapper::Len(v) => {
@@ -198,6 +201,19 @@ impl epi::App for App {
                                 }
                             });
 
+                            // Operations.
+                            ui.vertical(|ui| {
+                                // The first item shouldn't be deleted.
+                                if idx == 0 {
+                                    ui.set_enabled(false);
+                                }
+
+                                // Delete.
+                                if ui.button("Delete").clicked() {
+                                    removed_idx = Some(idx);
+                                }
+                            });
+
                             ui.end_row();
                         }
 
@@ -237,6 +253,7 @@ impl epi::App for App {
                     .enabled(can_modify_format)
                     .ui(ui)
                     .clicked()
+                    | item_kind_wrappers.is_empty()
                 {
                     item_kind_wrappers.push(ItemKindWrapper::Len);
                     item_fmt_wrappers
