@@ -83,6 +83,11 @@ impl epi::App for App {
         } = self;
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            match dark_light::detect() {
+                dark_light::Mode::Dark => ctx.set_visuals(egui::Visuals::dark()),
+                dark_light::Mode::Light => ctx.set_visuals(egui::Visuals::light()),
+            };
+
             ui.group(|ui| {
                 ui.label("Message");
                 ui.separator();
