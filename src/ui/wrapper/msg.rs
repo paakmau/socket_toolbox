@@ -7,7 +7,7 @@ use crate::{
     msg::{ItemFormat, ItemValue},
 };
 
-#[derive(Debug, Clone, PartialEq, strum::ToString, strum::EnumIter)]
+#[derive(Debug, Clone, PartialEq, strum_macros::ToString, strum_macros::EnumIter)]
 pub enum ItemKindWrapper {
     Len,
     Uint,
