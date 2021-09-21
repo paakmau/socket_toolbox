@@ -154,6 +154,8 @@ impl epi::App for App {
                                 match value {
                                     ItemValueWrapper::Len(v) => {
                                         ui.label(v.to_string());
+                                        // Len should be updated by Var items.
+                                        *v = 0;
                                     }
                                     ItemValueWrapper::Uint(s)
                                     | ItemValueWrapper::Int(s)
@@ -163,7 +165,8 @@ impl epi::App for App {
                                     }
                                 };
 
-                                // Update the Len
+                                // Update Len according to the max length of Var items.
+                                // Notice that the index of Len must be smaller than that of Var items.
                                 match (fmt, value) {
                                     (
                                         ItemFormatWrapper::VarString { len_idx },
@@ -174,7 +177,7 @@ impl epi::App for App {
                                             if let Some(ItemValueWrapper::Len(len)) =
                                                 item_value_wrappers.get_mut(len_idx)
                                             {
-                                                *len = s_len;
+                                                *len = (*len).max(s_len);
                                             }
                                         }
                                     }
@@ -187,7 +190,7 @@ impl epi::App for App {
                                             if let Some(ItemValueWrapper::Len(len)) =
                                                 item_value_wrappers.get_mut(len_idx)
                                             {
-                                                *len = s_len;
+                                                *len = (*len).max(s_len);
                                             }
                                         }
                                     }
