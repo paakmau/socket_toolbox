@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use eframe::{
-    egui::{self, TextEdit, Widget},
+    egui::{self, Button, TextEdit, Widget},
     epi,
 };
 use log::warn;
@@ -303,36 +303,51 @@ impl epi::App for App {
                     }
 
                     // Decode the bytes to input, log errors if fails.
+                    let mut parse_err = None;
+                    let mut decode_err = None;
                     ui.horizontal(|ui| {
                         ui.label("Decode:");
                         ui.text_edit_singleline(decoded_msg);
-                        if ui.button("Confirm").clicked() {
-                            match hex::decode(decoded_msg) {
-                                Ok(bytes) => {
-                                    match MessageDecoder::new(msg_fmt, bytes.deref())
-                                        .decode(Default::default())
-                                    {
-                                        Ok(msg) => {
-                                            *item_value_wrappers = msg
-                                                .values()
-                                                .iter()
-                                                .map(ItemValueWrapper::from)
-                                                .collect()
-                                        }
-                                        Err(e) => warn!(
-                                        "App: The bytes can not be decoded to Message, details: {}",
-                                        e
-                                    ),
-                                    }
-                                }
 
-                                Err(e) => warn!(
-                                    "App: The string can not be decoded to bytes, details: {}",
-                                    e
-                                ),
+                        let mut msg = None;
+                        match hex::decode(decoded_msg) {
+                            Ok(bytes) => {
+                                match MessageDecoder::new(msg_fmt, bytes.deref())
+                                    .decode(Default::default())
+                                {
+                                    Ok(m) => msg = Some(m),
+                                    Err(e) => decode_err = Some(e),
+                                }
                             }
+
+                            Err(e) => parse_err = Some(e),
+                        };
+
+                        if Button::new("Confirm")
+                            .enabled(msg.is_some())
+                            .ui(ui)
+                            .clicked()
+                        {
+                            *item_value_wrappers = msg
+                                .unwrap()
+                                .values()
+                                .iter()
+                                .map(ItemValueWrapper::from)
+                                .collect()
                         }
                     });
+
+                    if let Some(e) = parse_err {
+                        ui.label(format!(
+                            "Parse error: The hex string can not be decoded to bytes, details: {}",
+                            e
+                        ));
+                    } else if let Some(e) = decode_err {
+                        ui.label(format!(
+                            "Decode error: The bytes can not be decoded to Message, details: {}",
+                            e
+                        ));
+                    }
                 }
             });
 
