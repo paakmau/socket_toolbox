@@ -310,18 +310,20 @@ impl epi::App for App {
                         ui.text_edit_singleline(decoded_msg);
 
                         let mut msg = None;
-                        match hex::decode(decoded_msg) {
-                            Ok(bytes) => {
-                                match MessageDecoder::new(msg_fmt, bytes.deref())
-                                    .decode(Default::default())
-                                {
-                                    Ok(m) => msg = Some(m),
-                                    Err(e) => decode_err = Some(e),
+                        if !decoded_msg.is_empty() {
+                            match hex::decode(decoded_msg) {
+                                Ok(bytes) => {
+                                    match MessageDecoder::new(msg_fmt, bytes.deref())
+                                        .decode(Default::default())
+                                    {
+                                        Ok(m) => msg = Some(m),
+                                        Err(e) => decode_err = Some(e),
+                                    }
                                 }
-                            }
 
-                            Err(e) => parse_err = Some(e),
-                        };
+                                Err(e) => parse_err = Some(e),
+                            };
+                        }
 
                         if Button::new("Confirm")
                             .enabled(msg.is_some())
