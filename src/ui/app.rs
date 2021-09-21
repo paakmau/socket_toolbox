@@ -218,6 +218,7 @@ impl epi::App for App {
                         }
 
                         if let Some(idx) = removed_idx {
+                            item_kind_wrappers.remove(idx);
                             item_fmt_wrappers.remove(idx);
                             item_value_wrappers.remove(idx);
                         }
