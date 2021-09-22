@@ -165,11 +165,11 @@ impl epi::App for App {
                                         // Len should be updated by Var items.
                                         *v = 0;
                                     }
-                                    ItemValueWrapper::Uint(s)
-                                    | ItemValueWrapper::Int(s)
-                                    | ItemValueWrapper::Bytes(s)
-                                    | ItemValueWrapper::String(s) => {
+                                    ItemValueWrapper::Uint(s) | ItemValueWrapper::Int(s) => {
                                         ui.text_edit_singleline(s);
+                                    }
+                                    ItemValueWrapper::Bytes(s) | ItemValueWrapper::String(s) => {
+                                        ui.text_edit_multiline(s);
                                     }
                                 };
 
