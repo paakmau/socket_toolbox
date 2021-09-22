@@ -1,7 +1,7 @@
 use std::{
     io::{self},
     mem::{size_of, size_of_val},
-    ops::{Deref, DerefMut},
+    ops::Deref,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -329,12 +329,15 @@ impl<'a, W: io::Write> MessageEncoder<'a, W> {
     }
 
     pub fn encode(mut self, msg: &Message) -> Result<()> {
+        let mut buf = Vec::<u8>::default();
         for (idx, (item_fmt, item_value)) in self.fmt.iter().zip(msg.iter()).enumerate() {
             let len = value_len(item_fmt, msg);
-            let mut buf = vec![0u8; len];
-            buf.deref_mut().write(item_fmt, idx, item_value, msg)?;
-            self.w.write_all(&buf)?;
+            let prev_len = buf.len();
+            buf.resize(buf.len() + len, 0);
+            let mut slice = &mut buf[prev_len..];
+            slice.write(item_fmt, idx, item_value, msg)?;
         }
+        self.w.write_all(&buf)?;
 
         Ok(())
     }
