@@ -168,7 +168,7 @@ impl epi::App for App {
                                     ItemValueWrapper::Uint(s) | ItemValueWrapper::Int(s) => {
                                         ui.text_edit_singleline(s);
                                     }
-                                    ItemValueWrapper::Bytes(s) | ItemValueWrapper::String(s) => {
+                                    ItemValueWrapper::String(s) | ItemValueWrapper::Bytes(s) => {
                                         ui.text_edit_multiline(s);
                                     }
                                 };
