@@ -63,7 +63,7 @@ pub enum Error {
     },
 
     #[error("no more bytes can be read")]
-    Eof,
+    EndOfStream,
 
     #[error("socket need to be stopped")]
     Stopped,

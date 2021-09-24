@@ -103,7 +103,7 @@ impl Server {
                                 Ok(msg) => {
                                     info!("Server: Received from `{}`, msg: {:?}", addr, msg);
                                 }
-                                Err(Error::Eof | Error::Stopped) => {
+                                Err(Error::EndOfStream | Error::Stopped) => {
                                     break;
                                 }
                                 Err(e) => {
@@ -246,7 +246,7 @@ impl Client {
                 Ok(msg) => {
                     info!("Client: Received from `{}`, msg: {:?}", &connect_addr, &msg);
                 }
-                Err(Error::Eof | Error::Stopped) => {
+                Err(Error::EndOfStream | Error::Stopped) => {
                     break;
                 }
                 Err(e) => {

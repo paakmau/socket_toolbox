@@ -170,7 +170,7 @@ impl Read for &[u8] {
         let len = value_len(fmt, values);
 
         if self.len() < len {
-            return Err(Error::Eof);
+            return Err(Error::EndOfStream);
         }
 
         match fmt {
@@ -291,13 +291,13 @@ impl<'a, R: io::Read> MessageDecoder<'a, R> {
                             break;
                         }
                         if n == 0 {
-                            return Err(Error::Eof);
+                            return Err(Error::EndOfStream);
                         }
                     }
 
                     Err(e) => {
                         match e.kind() {
-                            io::ErrorKind::ConnectionReset => return Err(Error::Eof),
+                            io::ErrorKind::ConnectionReset => return Err(Error::EndOfStream),
                             io::ErrorKind::WouldBlock
                             | io::ErrorKind::TimedOut
                             | io::ErrorKind::Interrupted => {
