@@ -268,15 +268,15 @@ impl Write for &mut [u8] {
 
 pub struct MessageDecoder<'a, R: io::Read> {
     fmt: &'a MessageFormat,
-    r: R,
+    r: &'a mut R,
 }
 
 impl<'a, R: io::Read> MessageDecoder<'a, R> {
-    pub fn new(fmt: &'a MessageFormat, r: R) -> Self {
+    pub fn new(fmt: &'a MessageFormat, r: &'a mut R) -> Self {
         Self { fmt, r }
     }
 
-    pub fn decode(mut self, stop_flag: Arc<AtomicBool>) -> Result<Message> {
+    pub fn decode(self, stop_flag: Arc<AtomicBool>) -> Result<Message> {
         let mut values = Vec::<ItemValue>::with_capacity(self.fmt.len());
         for (idx, item_fmt) in self.fmt.iter().enumerate() {
             let len = value_len(item_fmt, &values);
@@ -373,7 +373,7 @@ mod tests {
         let mut bytes = Vec::<u8>::default();
         assert!(MessageEncoder::new(&fmt, &mut bytes).encode(&msg).is_ok());
 
-        let decoded_msg = MessageDecoder::new(&fmt, bytes.deref()).decode(Default::default());
+        let decoded_msg = MessageDecoder::new(&fmt, &mut bytes.deref()).decode(Default::default());
 
         assert!(decoded_msg.is_ok());
 

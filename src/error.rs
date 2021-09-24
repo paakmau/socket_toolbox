@@ -62,6 +62,9 @@ pub enum Error {
         len: usize,
     },
 
+    #[error("the HEX of message is too long, expected bytes: `{expected_len}`, actual: `{len}`")]
+    MessageHexTooLong { expected_len: usize, len: usize },
+
     #[error("no more bytes can be read")]
     EndOfStream,
 

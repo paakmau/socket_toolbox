@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use eframe::{
     egui::{self, Button, TextEdit, Widget},
@@ -319,10 +319,21 @@ impl epi::App for App {
                         if !msg_hex.is_empty() {
                             match hex::decode(msg_hex) {
                                 Ok(bytes) => {
-                                    match MessageDecoder::new(msg_fmt, bytes.deref())
+                                    let mut bytes = bytes.deref();
+                                    let len = bytes.len();
+                                    match MessageDecoder::new(msg_fmt, &mut bytes)
                                         .decode(Default::default())
                                     {
-                                        Ok(m) => msg = Some(m),
+                                        Ok(m) => {
+                                            if !bytes.is_empty() {
+                                                decode_err = Some(Error::MessageHexTooLong {
+                                                    expected_len: len - bytes.len(),
+                                                    len,
+                                                })
+                                            } else {
+                                                msg = Some(m);
+                                            }
+                                        }
                                         Err(e) => decode_err = Some(e),
                                     }
                                 }
