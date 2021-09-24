@@ -33,7 +33,7 @@ pub struct App {
     msg_fmt: Option<MessageFormat>,
     msg_fmt_validation_error: Option<Error>,
 
-    decoded_msg: String,
+    msg_hex: String,
 
     client_bind_addr: String,
     client_connect_addr: String,
@@ -71,7 +71,7 @@ impl epi::App for App {
             item_values,
             msg_fmt,
             msg_fmt_validation_error,
-            decoded_msg,
+            msg_hex,
             client_bind_addr,
             client_connect_addr,
             client_run_flag,
@@ -313,11 +313,11 @@ impl epi::App for App {
                     let mut decode_err = None;
                     ui.horizontal(|ui| {
                         ui.label("Decode:");
-                        ui.text_edit_singleline(decoded_msg);
+                        ui.text_edit_singleline(msg_hex);
 
                         let mut msg = None;
-                        if !decoded_msg.is_empty() {
-                            match hex::decode(decoded_msg) {
+                        if !msg_hex.is_empty() {
+                            match hex::decode(msg_hex) {
                                 Ok(bytes) => {
                                     match MessageDecoder::new(msg_fmt, bytes.deref())
                                         .decode(Default::default())
