@@ -78,6 +78,8 @@ impl Server {
         let mut writer_handles = Vec::<JoinHandle<()>>::default();
         self.handle = Some(std::thread::spawn(move || loop {
             if stop_flag.load(Ordering::Relaxed) {
+                tx_map.lock().unwrap().clear();
+
                 reader_handles.into_iter().for_each(|h| {
                     h.join().ok();
                 });
@@ -88,13 +90,7 @@ impl Server {
             }
 
             if let Ok(addr) = disconnection_rx.try_recv() {
-                let mut tx_map = tx_map.lock().unwrap();
-
-                if stop_flag.load(Ordering::Relaxed) {
-                    continue;
-                }
-
-                tx_map.remove(&addr);
+                tx_map.lock().unwrap().remove(&addr);
             }
 
             match listener.accept() {
@@ -147,15 +143,7 @@ impl Server {
                         }));
                     }
 
-                    {
-                        let mut tx_map = tx_map.lock().unwrap();
-
-                        if stop_flag.load(Ordering::Relaxed) {
-                            continue;
-                        }
-
-                        tx_map.insert(addr.to_string(), tx);
-                    }
+                    tx_map.lock().unwrap().insert(addr.to_string(), tx);
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     sleep(Duration::from_millis(500));
@@ -171,10 +159,6 @@ impl Server {
         if let Some(handle) = self.handle.take() {
             self.stop_flag.store(true, Ordering::Relaxed);
             self.listen_addr = None;
-            {
-                let mut tx_map = self.tx_map.lock().unwrap();
-                tx_map.clear();
-            }
             handle.join().unwrap();
         } else {
             panic!();
