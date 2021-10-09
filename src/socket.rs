@@ -72,6 +72,7 @@ impl Server {
         let fmt = self.fmt.clone();
         let listener: TcpListener = socket.try_clone().unwrap().into();
         let stop_flag = self.stop_flag.clone();
+        let (disconnection_tx, disconnection_rx) = channel::<String>();
         let tx_map = self.tx_map.clone();
         let mut reader_handles = Vec::<JoinHandle<()>>::default();
         let mut writer_handles = Vec::<JoinHandle<()>>::default();
@@ -86,6 +87,16 @@ impl Server {
                 break;
             }
 
+            if let Ok(addr) = disconnection_rx.try_recv() {
+                let mut tx_map = tx_map.lock().unwrap();
+
+                if stop_flag.load(Ordering::Relaxed) {
+                    continue;
+                }
+
+                tx_map.remove(&addr);
+            }
+
             match listener.accept() {
                 Ok((stream, addr)) => {
                     info!("Server: Connection established, addr: `{}`", &addr);
@@ -94,6 +105,7 @@ impl Server {
                         let fmt = fmt.clone();
                         let mut stream = stream.try_clone().unwrap();
                         let stop_flag = stop_flag.clone();
+                        let disconnection_tx = disconnection_tx.clone();
                         reader_handles.push(std::thread::spawn(move || loop {
                             if stop_flag.load(Ordering::Relaxed) {
                                 break;
@@ -103,9 +115,11 @@ impl Server {
                                 Ok(msg) => {
                                     info!("Server: Received from `{}`, msg: {:?}", addr, msg);
                                 }
-                                Err(Error::EndOfStream | Error::Stopped) => {
+                                Err(Error::EndOfStream) => {
+                                    disconnection_tx.send(addr.to_string()).unwrap();
                                     break;
                                 }
+                                Err(Error::Stopped) => break,
                                 Err(e) => {
                                     warn!(
                                         "Server: Error occurs while reading message, error: {}",
