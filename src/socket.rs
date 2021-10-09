@@ -280,10 +280,7 @@ impl Client {
         {
             self.stop_flag.store(true, Ordering::Relaxed);
             self.bind_addr = None;
-            {
-                let mut tx = self.tx.lock().unwrap();
-                tx.take();
-            }
+            self.tx.lock().unwrap().take();
             reader_handle.join().unwrap();
             writer_handle.join().unwrap();
         } else {
