@@ -74,16 +74,16 @@ impl Server {
         let stop_flag = self.stop_flag.clone();
         let (disconnection_tx, disconnection_rx) = channel::<String>();
         let tx_map = self.tx_map.clone();
-        let mut reader_handles = Vec::<JoinHandle<()>>::default();
-        let mut writer_handles = Vec::<JoinHandle<()>>::default();
+        let mut reader_handle_map = HashMap::<String, JoinHandle<()>>::default();
+        let mut writer_handle_map = HashMap::<String, JoinHandle<()>>::default();
         self.handle = Some(std::thread::spawn(move || loop {
             if stop_flag.load(Ordering::Relaxed) {
                 tx_map.lock().unwrap().clear();
 
-                reader_handles.into_iter().for_each(|h| {
+                reader_handle_map.into_values().for_each(|h| {
                     h.join().ok();
                 });
-                writer_handles.into_iter().for_each(|h| {
+                writer_handle_map.into_values().for_each(|h| {
                     h.join().ok();
                 });
                 break;
@@ -91,6 +91,8 @@ impl Server {
 
             if let Ok(addr) = disconnection_rx.try_recv() {
                 tx_map.lock().unwrap().remove(&addr);
+                reader_handle_map.remove(&addr).unwrap().join().unwrap();
+                writer_handle_map.remove(&addr).unwrap().join().unwrap();
             }
 
             match listener.accept() {
@@ -102,28 +104,33 @@ impl Server {
                         let mut stream = stream.try_clone().unwrap();
                         let stop_flag = stop_flag.clone();
                         let disconnection_tx = disconnection_tx.clone();
-                        reader_handles.push(std::thread::spawn(move || loop {
-                            if stop_flag.load(Ordering::Relaxed) {
-                                break;
-                            }
-
-                            match MessageDecoder::new(&fmt, &mut stream).decode(stop_flag.clone()) {
-                                Ok(msg) => {
-                                    info!("Server: Received from `{}`, msg: {:?}", addr, msg);
-                                }
-                                Err(Error::EndOfStream) => {
-                                    disconnection_tx.send(addr.to_string()).unwrap();
+                        reader_handle_map.insert(
+                            addr.to_string(),
+                            std::thread::spawn(move || loop {
+                                if stop_flag.load(Ordering::Relaxed) {
                                     break;
                                 }
-                                Err(Error::Stopped) => break,
-                                Err(e) => {
-                                    warn!(
-                                        "Server: Error occurs while reading message, error: {}",
-                                        e
-                                    );
+
+                                match MessageDecoder::new(&fmt, &mut stream)
+                                    .decode(stop_flag.clone())
+                                {
+                                    Ok(msg) => {
+                                        info!("Server: Received from `{}`, msg: {:?}", addr, msg);
+                                    }
+                                    Err(Error::EndOfStream) => {
+                                        disconnection_tx.send(addr.to_string()).unwrap();
+                                        break;
+                                    }
+                                    Err(Error::Stopped) => break,
+                                    Err(e) => {
+                                        warn!(
+                                            "Server: Error occurs while reading message, error: {}",
+                                            e
+                                        );
+                                    }
                                 }
-                            }
-                        }));
+                            }),
+                        );
                     }
 
                     let (tx, rx) = channel::<Message>();
@@ -131,16 +138,20 @@ impl Server {
                     {
                         let fmt = fmt.clone();
                         let mut stream = stream.try_clone().unwrap();
-                        writer_handles.push(std::thread::spawn(move || {
-                            while let Ok(msg) = rx.recv() {
-                                if let Ok(()) = MessageEncoder::new(&fmt, &mut stream).encode(&msg)
-                                {
-                                    info!("Server: Sent to `{}`, msg: {:?}", addr, msg);
-                                } else {
-                                    break;
+                        writer_handle_map.insert(
+                            addr.to_string(),
+                            std::thread::spawn(move || {
+                                while let Ok(msg) = rx.recv() {
+                                    if let Ok(()) =
+                                        MessageEncoder::new(&fmt, &mut stream).encode(&msg)
+                                    {
+                                        info!("Server: Sent to `{}`, msg: {:?}", addr, msg);
+                                    } else {
+                                        break;
+                                    }
                                 }
-                            }
-                        }));
+                            }),
+                        );
                     }
 
                     tx_map.lock().unwrap().insert(addr.to_string(), tx);
